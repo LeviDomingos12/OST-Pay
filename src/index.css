@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+/* Polish for nested camera video element inside html5-qrcode */
+#qr-reader video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 1rem !important;
+  transform: scaleX(-1);
+}

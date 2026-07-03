@@ -1,0 +1,6 @@
+{
+  "name": "OST Pay",
+  "description": "Plataforma de gestão de membros, pagamentos online, emissão de recibos e validação em tempo real de crachás digitais com QR Code.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
