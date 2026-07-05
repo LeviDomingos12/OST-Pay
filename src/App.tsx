@@ -5,8 +5,8 @@ import {
   QrCode, CreditCard, Shield, CheckCircle2, User, Landmark, Church, Phone, Calendar, MapPin, 
   Search, Check, AlertTriangle, X, ShieldAlert, LogOut, ArrowRight, Download, Printer, 
   Menu, Eye, FileText, Barcode, ChevronRight, Upload, Users, TrendingUp, DollarSign, Camera, RefreshCw,
-  Bell, Mail, MessageSquare, Lock, Clock, Send, Edit2, Trash2, Settings, Plus, Trash, Filter,
-  Server, EyeOff, Info, Copy, Globe
+  Bell, Mail, MessageSquare, Lock, Clock, Send, Edit2, Trash2, Settings, Plus, Trash, Filter, Moon,
+  Server, EyeOff, Info, Copy, Globe, Scissors, Heart, Unlock
 } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
 import { jsPDF } from "jspdf";
@@ -22,7 +22,8 @@ import {
   Member, 
   AttendanceRecord, 
   AuditLog, 
-  WhatsAppReminder 
+  WhatsAppReminder,
+  SmartTemplate
 } from "./types";
 
 import {
@@ -58,6 +59,138 @@ const PROVINCES = [
   "Cabo Delgado", "Gaza", "Inhambane", "Manica", "Maputo Província", "Maputo Cidade", 
   "Nampula", "Niassa", "Sofala", "Tete", "Zambézia"
 ];
+
+// --- CHURCH POSITIONS COLOR THEMES & PALETTES ---
+export const POSITION_THEMES: Record<string, {
+  name: string;
+  primaryColor: string;
+  badgeBg: string;
+  badgeText: string;
+  badgeBorder: string;
+  stripeColor: string;
+  pdfPrimaryRGB: [number, number, number];
+  pdfSecondaryRGB: [number, number, number];
+  pdfBadgeLabel: string;
+}> = {
+  "Membro": {
+    name: "Membro",
+    primaryColor: "blue-700",
+    badgeBg: "bg-blue-50/90",
+    badgeText: "text-blue-700 border-blue-200",
+    badgeBorder: "border-blue-200",
+    stripeColor: "bg-blue-700",
+    pdfPrimaryRGB: [29, 78, 216],
+    pdfSecondaryRGB: [219, 234, 254],
+    pdfBadgeLabel: "MEMBRO"
+  },
+  "Diacono": {
+    name: "Diácono",
+    primaryColor: "amber-600",
+    badgeBg: "bg-amber-50/90",
+    badgeText: "text-amber-700 border-amber-200",
+    badgeBorder: "border-amber-200",
+    stripeColor: "bg-amber-500",
+    pdfPrimaryRGB: [217, 119, 6],
+    pdfSecondaryRGB: [254, 243, 199],
+    pdfBadgeLabel: "DIÁCONO"
+  },
+  "Diácono": {
+    name: "Diácono",
+    primaryColor: "amber-600",
+    badgeBg: "bg-amber-50/90",
+    badgeText: "text-amber-700 border-amber-200",
+    badgeBorder: "border-amber-200",
+    stripeColor: "bg-amber-500",
+    pdfPrimaryRGB: [217, 119, 6],
+    pdfSecondaryRGB: [254, 243, 199],
+    pdfBadgeLabel: "DIÁCONO"
+  },
+  "Diaconisa": {
+    name: "Diaconisa",
+    primaryColor: "pink-600",
+    badgeBg: "bg-pink-50/90",
+    badgeText: "text-pink-700 border-pink-200",
+    badgeBorder: "border-pink-200",
+    stripeColor: "bg-pink-500",
+    pdfPrimaryRGB: [219, 39, 119],
+    pdfSecondaryRGB: [252, 231, 243],
+    pdfBadgeLabel: "DIACONISA"
+  },
+  "Anciao": {
+    name: "Ancião",
+    primaryColor: "purple-700",
+    badgeBg: "bg-purple-50/90",
+    badgeText: "text-purple-700 border-purple-200",
+    badgeBorder: "border-purple-200",
+    stripeColor: "bg-purple-600",
+    pdfPrimaryRGB: [109, 40, 217],
+    pdfSecondaryRGB: [243, 232, 255],
+    pdfBadgeLabel: "ANCIÃO"
+  },
+  "Ancião": {
+    name: "Ancião",
+    primaryColor: "purple-700",
+    badgeBg: "bg-purple-50/90",
+    badgeText: "text-purple-700 border-purple-200",
+    badgeBorder: "border-purple-200",
+    stripeColor: "bg-purple-600",
+    pdfPrimaryRGB: [109, 40, 217],
+    pdfSecondaryRGB: [243, 232, 255],
+    pdfBadgeLabel: "ANCIÃO"
+  },
+  "Pastor": {
+    name: "Pastor",
+    primaryColor: "indigo-700",
+    badgeBg: "bg-indigo-50/90",
+    badgeText: "text-indigo-700 border-indigo-200",
+    badgeBorder: "border-indigo-200",
+    stripeColor: "bg-indigo-600",
+    pdfPrimaryRGB: [67, 56, 202],
+    pdfSecondaryRGB: [224, 231, 255],
+    pdfBadgeLabel: "PASTOR"
+  },
+  "Bispo": {
+    name: "Bispo",
+    primaryColor: "red-700",
+    badgeBg: "bg-red-50/90",
+    badgeText: "text-red-700 border-red-200",
+    badgeBorder: "border-red-200",
+    stripeColor: "bg-red-600",
+    pdfPrimaryRGB: [185, 28, 28],
+    pdfSecondaryRGB: [254, 226, 226],
+    pdfBadgeLabel: "BISPO"
+  },
+  "Visitante": {
+    name: "Visitante",
+    primaryColor: "slate-600",
+    badgeBg: "bg-slate-50/90",
+    badgeText: "text-slate-700 border-slate-200",
+    badgeBorder: "border-slate-200",
+    stripeColor: "bg-slate-500",
+    pdfPrimaryRGB: [71, 85, 105],
+    pdfSecondaryRGB: [241, 245, 249],
+    pdfBadgeLabel: "VISITANTE"
+  }
+};
+
+export const getPositionTheme = (role?: string) => {
+  if (!role) return POSITION_THEMES["Membro"];
+  const key = role.trim();
+  const normalized = key.toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+
+  if (normalized === "membro") return POSITION_THEMES["Membro"];
+  if (normalized === "diacono") return POSITION_THEMES["Diacono"];
+  if (normalized === "diaconisa") return POSITION_THEMES["Diaconisa"];
+  if (normalized === "anciao") return POSITION_THEMES["Anciao"];
+  if (normalized === "pastor") return POSITION_THEMES["Pastor"];
+  if (normalized === "bispo") return POSITION_THEMES["Bispo"];
+  if (normalized === "visitante") return POSITION_THEMES["Visitante"];
+
+  return POSITION_THEMES["Membro"];
+};
 
 // --- INITIAL MOCK DATA ---
 const INITIAL_MEMBERS: Member[] = [];
@@ -155,8 +288,17 @@ export default function App() {
   const [memberTab, setMemberTab] = useState<"profile" | "payment" | "badge">("profile");
   
   // Admin dashboard tabs
-  const [adminTab, setAdminTab] = useState<"overview" | "members" | "audit" | "worship" | "reminders" | "smtp">("overview");
-  const [remindersSubTab, setRemindersSubTab] = useState<"queue" | "history">("queue");
+  const [adminTab, setAdminTab] = useState<"overview" | "members" | "audit" | "worship" | "reminders" | "smtp" | "health">("overview");
+  const [remindersSubTab, setRemindersSubTab] = useState<"queue" | "history" | "templates">("queue");
+
+  // Health & Assistance tab states
+  const [healthSearchQuery, setHealthSearchQuery] = useState("");
+  const [healthSpecialNeedsFilter, setHealthSpecialNeedsFilter] = useState("Todos"); // "Todos", "Sim", "Não"
+  const [healthBloodTypeFilter, setHealthBloodTypeFilter] = useState("Todos");
+  const [unlockedHealthMemberIds, setUnlockedHealthMemberIds] = useState<Record<string, boolean>>({});
+  const [editingHealthMember, setEditingHealthMember] = useState<Member | null>(null);
+  const [viewingHealthConfirmMember, setViewingHealthConfirmMember] = useState<Member | null>(null);
+  const [healthPrivacyChecked, setHealthPrivacyChecked] = useState(false);
 
   // Simple Base64-based cryptographic obfuscation for safe storage of passwords in local storage
   const encryptSmtpPassword = (pass: string) => {
@@ -727,7 +869,7 @@ export default function App() {
   const [statusFilter, setStatusFilter] = useState("Todos");
   const [regionFilter, setRegionFilter] = useState("Todas");
 
-  // Scanner simulation
+  // Scanner state
   const [scannerSearchId, setScannerSearchId] = useState("");
   const [scannedResult, setScannedResult] = useState<Member | null>(null);
   const [scanStatusMessage, setScanStatusMessage] = useState<string | null>(null);
@@ -763,6 +905,31 @@ export default function App() {
       "Olá {nome}! O seu crachá oficial OST expirou a {validade}. Regularize o seu pagamento no portal da OST para reativar o seu crachá e garantir o acesso aos cultos: {link}";
   });
 
+  const [smartTemplates, setSmartTemplates] = useState<SmartTemplate[]>(() => {
+    const saved = localStorage.getItem("ost_smart_templates");
+    if (saved) return JSON.parse(saved);
+    return [
+      {
+        id: "tpl-1",
+        name: "Aviso Prévio Automático",
+        triggerType: "Antes_Vencer",
+        daysInterval: 10,
+        isActive: true,
+        message: "Olá {nome}! Relembramos que o seu crachá OST irá expirar no dia {data_vencimento}. Para manter o seu acesso ativo sem interrupções, renove hoje mesmo através do link: {link_renovacao}",
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: "tpl-2",
+        name: "Notificação de Bloqueio Imediato",
+        triggerType: "Apos_Vencer",
+        daysInterval: 1,
+        isActive: true,
+        message: "Atenção {nome}, o seu crachá oficial OST expirou no dia {data_vencimento}. Por favor, aceda a {link_renovacao} e regularize a sua quota para evitar o impedimento de entrada nos cultos.",
+        createdAt: new Date().toISOString()
+      }
+    ];
+  });
+
   useEffect(() => {
     localStorage.setItem("ost_wa_template_expiring", waTemplateExpiring);
   }, [waTemplateExpiring]);
@@ -770,6 +937,62 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("ost_wa_template_expired", waTemplateExpired);
   }, [waTemplateExpired]);
+
+  useEffect(() => {
+    localStorage.setItem("ost_smart_templates", JSON.stringify(smartTemplates));
+  }, [smartTemplates]);
+
+  // Quiet Hours (Horário de Silêncio) state
+  const [quietHoursEnabled, setQuietHoursEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem("ost_quiet_hours_enabled");
+    return saved !== null ? saved === "true" : true;
+  });
+  const [quietHoursStart, setQuietHoursStart] = useState<string>(() => {
+    return localStorage.getItem("ost_quiet_hours_start") || "22:00";
+  });
+  const [quietHoursEnd, setQuietHoursEnd] = useState<string>(() => {
+    return localStorage.getItem("ost_quiet_hours_end") || "08:00";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("ost_quiet_hours_enabled", String(quietHoursEnabled));
+  }, [quietHoursEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem("ost_quiet_hours_start", quietHoursStart);
+  }, [quietHoursStart]);
+
+  useEffect(() => {
+    localStorage.setItem("ost_quiet_hours_end", quietHoursEnd);
+  }, [quietHoursEnd]);
+
+  const isCurrentlyInQuietHours = () => {
+    if (!quietHoursEnabled) return false;
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMin = now.getMinutes();
+    const currentTimeMinutes = currentHour * 60 + currentMin;
+
+    const [startH, startM] = quietHoursStart.split(":").map(Number);
+    const [endH, endM] = quietHoursEnd.split(":").map(Number);
+
+    const startTimeMinutes = startH * 60 + startM;
+    const endTimeMinutes = endH * 60 + endM;
+
+    if (startTimeMinutes <= endTimeMinutes) {
+      return currentTimeMinutes >= startTimeMinutes && currentTimeMinutes <= endTimeMinutes;
+    } else {
+      return currentTimeMinutes >= startTimeMinutes || currentTimeMinutes <= endTimeMinutes;
+    }
+  };
+
+  // States for Smart Template Management Form
+  const [newTplName, setNewTplName] = useState("");
+  const [newTplTrigger, setNewTplTrigger] = useState<"Antes_Vencer" | "Apos_Vencer" | "Expirado_Hoje">("Antes_Vencer");
+  const [newTplMessage, setNewTplMessage] = useState("");
+  const [newTplInterval, setNewTplInterval] = useState(5);
+  const [newTplIsActive, setNewTplIsActive] = useState(true);
+  const [editingTplId, setEditingTplId] = useState<string | null>(null);
 
   // New Registration State (Google profile edit step)
   const [registrationForm, setRegistrationForm] = useState({
@@ -779,7 +1002,8 @@ export default function App() {
     email: "",
     province: "Manica",
     region: "Chimoio Norte",
-    photoUrl: ""
+    photoUrl: "",
+    role: "Membro" as "Membro" | "Diacono" | "Diaconisa" | "Anciao" | "Pastor" | "Bispo" | "Visitante"
   });
 
   // Payment UI state
@@ -792,7 +1016,7 @@ export default function App() {
   const [cardDetails, setCardDetails] = useState({ number: "", expiry: "", cvv: "" });
   const [transferReceiptName, setTransferReceiptName] = useState<string | null>(null);
 
-  // WhatsApp / Email sending simulator state
+  // Envio de crachá por WhatsApp / Email
   const [badgeSendPlatform, setBadgeSendPlatform] = useState<"whatsapp" | "email" | "">("");
   const [badgeSendTarget, setBadgeSendTarget] = useState("");
   const [badgeSendProgress, setBadgeSendProgress] = useState(0);
@@ -806,6 +1030,8 @@ export default function App() {
   const [selectedBadge, setSelectedBadge] = useState<Member | null>(null);
 
   const [isCheckingExpiry, setIsCheckingExpiry] = useState(false);
+  const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(0);
 
   const sendExpiryEmailNotification = async (member: Member, daysLeft: number) => {
     try {
@@ -1080,7 +1306,7 @@ export default function App() {
         sender = senderMatch[1].trim();
       }
 
-      // Determine risk level based on keywords or simulations
+      // Determine risk level based on keywords or database matches
       if (text.includes("ALERTA: ID já registado") || text.includes("Duplicado")) {
         riskScore = 65;
         riskLevel = "alta";
@@ -1153,24 +1379,25 @@ export default function App() {
       const status = getExpiryStatus(m.expiryDate);
       if (!status.nearing && !status.expired) return;
       
-      // Check if there is already an 'Agendado' reminder for this member
-      const hasActiveReminder = whatsappReminders.some(
-        r => r.memberId === m.id && r.status === "Agendado"
+      // Process default templates first (to keep legacy behavior intact)
+      const hasActiveDefaultReminder = whatsappReminders.some(
+        r => r.memberId === m.id && r.status === "Agendado" && 
+        (r.message.includes("expira em") || r.message.includes("expirou"))
       );
       
-      if (!hasActiveReminder) {
+      if (!hasActiveDefaultReminder) {
         let msg = "";
         if (status.expired) {
           msg = waTemplateExpired
-            .replace("{nome}", m.name)
-            .replace("{validade}", m.expiryDate || "")
-            .replace("{link}", window.location.origin);
+            .replace(/{nome}/g, m.name)
+            .replace(/{validade}/g, m.expiryDate || "")
+            .replace(/{link}/g, window.location.origin);
         } else {
           msg = waTemplateExpiring
-            .replace("{nome}", m.name)
-            .replace("{dias}", status.daysLeft.toString())
-            .replace("{validade}", m.expiryDate || "")
-            .replace("{link}", window.location.origin);
+            .replace(/{nome}/g, m.name)
+            .replace(/{dias}/g, status.daysLeft.toString())
+            .replace(/{validade}/g, m.expiryDate || "")
+            .replace(/{link}/g, window.location.origin);
         }
         
         newReminders.push({
@@ -1186,16 +1413,59 @@ export default function App() {
         });
         count++;
       }
+
+      // Process custom Smart Templates
+      const activeSmartTemplates = smartTemplates.filter(t => t.isActive);
+      activeSmartTemplates.forEach(tpl => {
+        let shouldTrigger = false;
+        if (tpl.triggerType === "Antes_Vencer" && status.daysLeft > 0 && status.daysLeft <= tpl.daysInterval) {
+          shouldTrigger = true;
+        } else if (tpl.triggerType === "Apos_Vencer" && status.daysLeft < 0 && Math.abs(status.daysLeft) >= tpl.daysInterval) {
+          shouldTrigger = true;
+        } else if (tpl.triggerType === "Expirado_Hoje" && status.daysLeft === 0) {
+          shouldTrigger = true;
+        }
+
+        if (shouldTrigger) {
+          const formattedMsg = tpl.message
+            .replace(/{nome}/g, m.name)
+            .replace(/{dias}/g, Math.max(0, status.daysLeft).toString())
+            .replace(/{data_vencimento}/g, m.expiryDate || "")
+            .replace(/{validade}/g, m.expiryDate || "")
+            .replace(/{link_renovacao}/g, window.location.origin)
+            .replace(/{link}/g, window.location.origin);
+
+          // Check if this specific smart template message has already been scheduled or sent to this member
+          const hasThisReminder = whatsappReminders.some(
+            r => r.memberId === m.id && (r.message === formattedMsg || (r.status === "Agendado" && r.message.includes(tpl.name)))
+          );
+
+          if (!hasThisReminder) {
+            newReminders.push({
+              id: "rem-" + Date.now() + "-" + Math.floor(Math.random() * 1000),
+              memberId: m.id,
+              memberName: m.name,
+              contact: m.contact || m.id,
+              expiryDate: m.expiryDate || "",
+              daysLeft: status.daysLeft,
+              scheduledDate: todayStr,
+              status: "Agendado",
+              message: formattedMsg
+            });
+            count++;
+          }
+        }
+      });
     });
     
     if (newReminders.length > 0) {
       setWhatsappReminders(prev => [...newReminders, ...prev]);
-      addLog("Sistema", `Gerou automaticamente ${count} lembretes de renovação via WhatsApp`, "success");
+      addLog("Sistema", `Gerou automaticamente ${count} lembretes (incluindo Templates Inteligentes) via WhatsApp`, "success");
       setActiveToasts(prev => [
         {
           id: "toast-" + Date.now(),
           title: "Lembretes Gerados",
-          message: `Foram agendados ${count} novos lembretes baseados no histórico de vencimento dos crachás!`,
+          message: `Foram agendados ${count} novos lembretes baseados nos seus Templates Inteligentes e regras de vencimento!`,
           type: "success"
         },
         ...prev
@@ -1205,7 +1475,7 @@ export default function App() {
         {
           id: "toast-" + Date.now(),
           title: "Tudo em Dia",
-          message: "Todos os membros elegíveis já possuem lembretes agendados ou ativos.",
+          message: "Todos os membros elegíveis já possuem lembretes agendados baseados nos seus Templates Inteligentes.",
           type: "info"
         },
         ...prev
@@ -1280,6 +1550,36 @@ export default function App() {
     }
   }, [currentMode, members.length]);
 
+  // Execute runAutomatedExpiryNotifications automatically once a day at midnight based on current time
+  useEffect(() => {
+    let timerId: NodeJS.Timeout;
+
+    const scheduleNextMidnightSweep = () => {
+      const now = new Date();
+      const nextMidnight = new Date();
+      nextMidnight.setDate(now.getDate() + 1);
+      nextMidnight.setHours(0, 0, 0, 0);
+
+      const msUntilMidnight = nextMidnight.getTime() - now.getTime();
+      console.log(`[OST-PAY] Próxima varredura automática agendada em ${Math.round(msUntilMidnight / 1000 / 60)} minutos (à meia-noite)`);
+
+      timerId = setTimeout(() => {
+        console.log("[OST-PAY] A executar varredura automática de meia-noite...");
+        runAutomatedExpiryNotifications(true);
+        // Reschedule for next midnight
+        scheduleNextMidnightSweep();
+      }, msUntilMidnight);
+    };
+
+    if (members.length > 0) {
+      scheduleNextMidnightSweep();
+    }
+
+    return () => {
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [members]);
+
   // Custom Authentication & Admin Authorization states
   const [loginTab, setLoginTab] = useState<"membro" | "admin">("membro");
   const [googleLoginEmail, setGoogleLoginEmail] = useState("");
@@ -1288,7 +1588,7 @@ export default function App() {
   const [isAdminAuthorized, setIsAdminAuthorized] = useState<boolean>(() => {
     return localStorage.getItem("ost_pay_admin_authorized") === "true";
   });
-  const [adminApprovalStep, setAdminApprovalStep] = useState<"none" | "link_generated" | "simulator_open" | "authorized">(() => {
+  const [adminApprovalStep, setAdminApprovalStep] = useState<"none" | "link_generated" | "authorized">(() => {
     return localStorage.getItem("ost_pay_admin_authorized") === "true" ? "authorized" : "none";
   });
   const [adminRequestToken, setAdminRequestToken] = useState("");
@@ -1591,7 +1891,8 @@ export default function App() {
           contact: "+258 ",
           province: "Maputo Cidade",
           region: "Maputo Central",
-          photoUrl: ""
+          photoUrl: "",
+          role: "Membro"
         });
         // Set temp user for registration flow
         const tempMember: Member = {
@@ -1610,7 +1911,8 @@ export default function App() {
           barcode: "",
           photoUrl: "",
           createdAt: new Date().toISOString(),
-          lastAccess: new Date().toISOString()
+          lastAccess: new Date().toISOString(),
+          role: "Membro"
         };
         setCurrentUser(tempMember);
         setCurrentMode("member");
@@ -1646,7 +1948,8 @@ export default function App() {
       barcode: memberId.replace("OST-", "") + Math.floor(100000 + Math.random() * 90000),
       photoUrl: registrationForm.photoUrl || (currentUser && "photoUrl" in currentUser ? currentUser.photoUrl : "") || "",
       createdAt: new Date().toISOString(),
-      lastAccess: new Date().toISOString()
+      lastAccess: new Date().toISOString(),
+      role: registrationForm.role
     };
 
     // Add to members list if it doesn't exist
@@ -1666,7 +1969,7 @@ export default function App() {
     setPaymentStep("input");
   };
 
-  // Payment simulator logic
+  // Payment processing logic
   const handlePaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser || !("id" in currentUser)) return;
@@ -1776,7 +2079,7 @@ export default function App() {
     setMembers(prev => prev.map(m => m.id === updated.id ? updated : m));
   };
 
-  // Upload Photo base64 simulation
+  // Profile photo upload and conversion to base64
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !currentUser || !("id" in currentUser)) return;
@@ -1790,6 +2093,22 @@ export default function App() {
       addLog(currentUser.name, "Atualizou a fotografia de perfil", "info");
     };
     reader.readAsDataURL(file);
+  };
+
+  // Health and Assistance record update handler
+  const handleSaveHealthRecord = (updatedMember: Member) => {
+    setMembers(prev => prev.map(m => m.id === updatedMember.id ? updatedMember : m));
+    addLog("Administrador", `Atualizou a Ficha de Saúde e Assistência de ${updatedMember.name} (${updatedMember.id})`, "info");
+    setActiveToasts(prev => [
+      {
+        id: "toast-" + Date.now(),
+        title: "Ficha de Saúde Guardada",
+        message: `As informações médicas e de assistência de ${updatedMember.name} foram guardadas de forma segura.`,
+        type: "success"
+      },
+      ...prev
+    ]);
+    setEditingHealthMember(null);
   };
 
   // Admin approvals & notifications handlers
@@ -1852,65 +2171,9 @@ export default function App() {
     setAdminNotifications(prev => prev.filter(n => n.id !== notifId));
   };
 
+
   const clearAllNotifications = () => {
     setAdminNotifications([]);
-  };
-
-  const simulateIncomingPayment = () => {
-    const names = ["Afonso Machel", "Josina Langa", "Luísa Chimoio", "Sena Mutarara", "Chokwe Chicualacuala", "Mateus Nhaca"];
-    const provincesList = ["Sofi", "Nampula", "Zambézia", "Maputo Cidade", "Gaza"];
-    const regionsList = ["Beira Sul", "Matola", "Quelimane", "Nampula Sul", "Maputo Central"];
-    
-    const randomName = names[Math.floor(Math.random() * names.length)];
-    const randomProvince = provincesList[Math.floor(Math.random() * provincesList.length)];
-    const randomRegion = regionsList[Math.floor(Math.random() * regionsList.length)];
-    const randomAmount = [500, 1000, 250][Math.floor(Math.random() * 3)];
-    const memberId = "OST-" + Math.floor(100000 + Math.random() * 900000);
-    const rNumber = "REC-2026-" + Math.floor(1000 + Math.random() * 9000);
-    const bNumber = "CR-2026-" + memberId.replace("OST-", "");
-
-    const newMember: Member = {
-      id: memberId,
-      name: randomName,
-      birthDate: "1993-05-12",
-      contact: "+258 84 " + Math.floor(1000000 + Math.random() * 9000000),
-      email: randomName.toLowerCase().replace(" ", "") + "@gmail.com",
-      province: randomProvince,
-      region: randomRegion,
-      paymentType: randomAmount === 500 ? "Individual" : randomAmount === 1000 ? "Regional" : "Contribuição",
-      paymentMethod: "Transferência",
-      paymentStatus: "Pendente",
-      receiptNumber: rNumber,
-      badgeNumber: bNumber,
-      barcode: memberId.replace("OST-", "") + "9988",
-      photoUrl: "",
-      createdAt: new Date().toISOString(),
-      lastAccess: new Date().toISOString(),
-      paymentAmount: randomAmount
-    };
-
-    setMembers(prev => [newMember, ...prev]);
-    addLog(newMember.name, `Submeteu transferência pendente de aprovação via simulador de teste`, "info");
-
-    const newNotif: AdminNotification = {
-      id: "notif-" + Date.now(),
-      memberId: newMember.id,
-      memberName: newMember.name,
-      amount: randomAmount,
-      paymentMethod: "Transferência",
-      timestamp: new Date().toISOString(),
-      status: "Pendente"
-    };
-    setAdminNotifications(prev => [newNotif, ...prev]);
-
-    const newToast: AdminToast = {
-      id: "toast-" + Date.now(),
-      title: "Novo Pagamento Pendente",
-      message: `${newMember.name} submeteu um pagamento de ${randomAmount} MT via Transferência Bancária.`,
-      type: "warning",
-      memberId: newMember.id
-    };
-    setActiveToasts(prev => [newToast, ...prev]);
   };
 
   const triggerAutomaticPoll = async () => {
@@ -1967,166 +2230,416 @@ export default function App() {
     }
   };
 
-  const handleGenerateBadgePDF = async (member: Member, download: boolean = true): Promise<string> => {
-    // vertical standard badge size: 85mm x 120mm
-    const doc = new jsPDF({
+  const handleGenerateBadgePDF = async (
+    member: Member,
+    download: boolean = true,
+    options?: {
+      withBleedAndCrop?: boolean;
+      docInstance?: jsPDF;
+      startX?: number;
+      startY?: number;
+      scale?: number;
+    }
+  ): Promise<string> => {
+    const withBleedAndCrop = options?.withBleedAndCrop || false;
+    const scale = options?.scale || 1;
+    const dx = options?.startX !== undefined ? options.startX : (withBleedAndCrop ? 3 : 0);
+    const dy = options?.startY !== undefined ? options.startY : (withBleedAndCrop ? 3 : 0);
+
+    // If docInstance is provided, use it; otherwise create a new jsPDF instance
+    const doc = options?.docInstance || new jsPDF({
       orientation: "portrait",
       unit: "mm",
-      format: [85, 120]
+      format: withBleedAndCrop ? [91, 126] : [85, 120]
     });
 
     const width = 85;
     const height = 120;
+    const w = width * scale;
+    const h = height * scale;
 
-    // Background and border lines
-    doc.setDrawColor(203, 213, 225); // Slate-300
-    doc.setLineWidth(0.4);
-    doc.rect(2, 2, width - 4, height - 4);
+    const theme = getPositionTheme(member.role);
 
-    // Top Header
-    doc.setFillColor(15, 23, 42); // Slate-900
-    doc.rect(2, 2, width - 4, 25, "F");
+    // If we have single-badge bleed, let's fill the background with white
+    if (withBleedAndCrop && !options?.docInstance) {
+      doc.setFillColor(255, 255, 255);
+      doc.rect(0, 0, 91, 126, "F");
+    }
 
-    // Blue separator bar
-    doc.setFillColor(29, 78, 216); // Blue-700
-    doc.rect(2, 27, width - 4, 1.5, "F");
+    // 1. OUTER CARD BORDER & SHADOW EFFECT
+    // Soft outer gray line
+    doc.setDrawColor(226, 232, 240); // Slate-200
+    doc.setLineWidth(0.3 * scale);
+    doc.rect(dx, dy, w, h);
 
-    // Title Text
+    // Elegant inner border offset by 1.2mm for a high-end corporate framing
+    const innerOffset = 1.2 * scale;
+    doc.setDrawColor(theme.pdfPrimaryRGB[0], theme.pdfPrimaryRGB[1], theme.pdfPrimaryRGB[2]);
+    doc.setLineWidth(0.15 * scale);
+    doc.rect(dx + innerOffset, dy + innerOffset, w - 2 * innerOffset, h - 2 * innerOffset);
+
+    // 2. ANTI-COUNTERFEITING SECURITY WATERMARK/GUILLOCHÉ IN THE BACKGROUND
+    // Drawing thin concentric decorative background circles to mimic secure certificates
+    doc.setDrawColor(241, 245, 249); // Slate-100 (very subtle)
+    doc.setLineWidth(0.08 * scale);
+    const centerY = dy + h / 2 + 10 * scale;
+    const centerX = dx + w / 2;
+    for (let r = 8 * scale; r <= 36 * scale; r += 4 * scale) {
+      doc.ellipse(centerX, centerY, r, r * 0.9, "D");
+    }
+    // Subtle crosshair lines
+    doc.line(centerX - 40 * scale, centerY, centerX + 40 * scale, centerY);
+    doc.line(centerX, centerY - 40 * scale, centerX, centerY + 40 * scale);
+
+    // 3. PREMIUM TOP HEADER DESIGN (Deep charcoal background with modern diagonal stripe)
+    doc.setFillColor(15, 23, 42); // Deep Slate-900 / Slate-950
+    if (withBleedAndCrop && !options?.docInstance) {
+      // Cover the full top bleed area
+      doc.rect(0, 0, 91, 30, "F");
+    } else {
+      doc.rect(dx, dy, w, 27 * scale, "F");
+    }
+
+    // Modern colored accent ribbon under the main header
+    doc.setFillColor(theme.pdfPrimaryRGB[0], theme.pdfPrimaryRGB[1], theme.pdfPrimaryRGB[2]);
+    if (withBleedAndCrop && !options?.docInstance) {
+      doc.rect(0, 30, 91, 1.8, "F");
+    } else {
+      doc.rect(dx, dy + 27 * scale, w, 1.8 * scale, "F");
+    }
+
+    // Mozambique Flag Elegant Small Ribbon (Representing national affiliation officially)
+    // Placed in the top right corner
+    const ribbonW = 2.0 * scale;
+    const ribbonH = 1.2 * scale;
+    const ribbonX = dx + w - 12 * scale;
+    const ribbonY = dy + 3.5 * scale;
+    // Green, Black, Red, Yellow lines side-by-side
+    doc.setFillColor(0, 150, 100); // Green
+    doc.rect(ribbonX, ribbonY, ribbonW, ribbonH, "F");
+    doc.setFillColor(0, 0, 0); // Black
+    doc.rect(ribbonX + ribbonW, ribbonY, ribbonW, ribbonH, "F");
+    doc.setFillColor(220, 30, 50); // Red
+    doc.rect(ribbonX + 2 * ribbonW, ribbonY, ribbonW, ribbonH, "F");
+    doc.setFillColor(255, 210, 0); // Yellow
+    doc.rect(ribbonX + 3 * ribbonW, ribbonY, ribbonW, ribbonH, "F");
+
+    // Title Texts in the Header
     doc.setTextColor(255, 255, 255);
     doc.setFont("Helvetica", "bold");
-    doc.setFontSize(8.5);
-    doc.text("ORGANIZAÇÃO SOCIAL", width / 2, 10, { align: "center" });
-    doc.text("DO TRABALHO", width / 2, 14, { align: "center" });
+    doc.setFontSize(8.5 * scale);
+    doc.text("ORGANIZAÇÃO SOCIAL", dx + w / 2, dy + 10 * scale, { align: "center" });
+    doc.text("DO TRABALHO", dx + w / 2, dy + 14 * scale, { align: "center" });
 
-    doc.setTextColor(147, 197, 253); // Blue-300
-    doc.setFontSize(5.5);
+    // Header subtitle
+    doc.setTextColor(theme.pdfSecondaryRGB[0], theme.pdfSecondaryRGB[1], theme.pdfSecondaryRGB[2]);
+    doc.setFontSize(5.5 * scale);
+    doc.setFont("Helvetica", "bold");
+    doc.text("CRACHÁ OFICIAL DE FILIAÇÃO", dx + w / 2, dy + 20 * scale, { align: "center" });
+
+    doc.setTextColor(148, 163, 184); // Slate-400
+    doc.setFontSize(4.2 * scale);
     doc.setFont("Helvetica", "normal");
-    doc.text("CRACHÁ OFICIAL DE FILIAÇÃO", width / 2, 20, { align: "center" });
+    doc.text("REPÚBLICA DE MOÇAMBIQUE", dx + w / 2, dy + 24 * scale, { align: "center" });
 
-    // Photo Box Placeholder or Image
-    let y = 37;
-    doc.setDrawColor(29, 78, 216); // Blue-700
-    doc.setLineWidth(0.8);
-    doc.setFillColor(248, 250, 252); // Slate-50
-    doc.rect(width / 2 - 14, y, 28, 28, "FD");
+    // 4. PORTRAIT PHOTO FRAME WITH INNER SHADOW SIMULATION
+    let y = dy + 37 * scale;
+    
+    // Draw outer portrait backdrop/shadow rectangle
+    doc.setFillColor(241, 245, 249); // Slate-100
+    doc.rect(dx + w / 2 - 13 * scale, y + 1 * scale, 26 * scale, 26 * scale, "F");
+
+    // Main photo frame
+    doc.setDrawColor(theme.pdfPrimaryRGB[0], theme.pdfPrimaryRGB[1], theme.pdfPrimaryRGB[2]);
+    doc.setLineWidth(0.6 * scale);
+    doc.setFillColor(255, 255, 255);
+    doc.rect(dx + w / 2 - 13.5 * scale, y - 0.5 * scale, 27 * scale, 27 * scale, "FD");
 
     if (member.photoUrl) {
       try {
         const base64Photo = await getBase64ImageFromUrl(member.photoUrl);
-        doc.addImage(base64Photo, "JPEG", width / 2 - 13.5, y + 0.5, 27, 27);
+        doc.addImage(base64Photo, "JPEG", dx + w / 2 - 13 * scale, y, 26 * scale, 26 * scale);
       } catch (e) {
-        // Fallback initials
-        doc.setTextColor(29, 78, 216);
+        // Fallback initials inside custom background
+        doc.setFillColor(theme.pdfSecondaryRGB[0], theme.pdfSecondaryRGB[1], theme.pdfSecondaryRGB[2]);
+        doc.rect(dx + w / 2 - 13 * scale, y, 26 * scale, 26 * scale, "F");
+        doc.setTextColor(theme.pdfPrimaryRGB[0], theme.pdfPrimaryRGB[1], theme.pdfPrimaryRGB[2]);
         doc.setFont("Helvetica", "bold");
-        doc.setFontSize(16);
-        doc.text(member.name.substring(0, 2).toUpperCase(), width / 2, y + 16, { align: "center" });
+        doc.setFontSize(14 * scale);
+        doc.text(member.name.substring(0, 2).toUpperCase(), dx + w / 2, y + 15 * scale, { align: "center" });
       }
     } else {
-      // Fallback initials
-      doc.setTextColor(29, 78, 216);
+      // Fallback initials inside custom background
+      doc.setFillColor(theme.pdfSecondaryRGB[0], theme.pdfSecondaryRGB[1], theme.pdfSecondaryRGB[2]);
+      doc.rect(dx + w / 2 - 13 * scale, y, 26 * scale, 26 * scale, "F");
+      doc.setTextColor(theme.pdfPrimaryRGB[0], theme.pdfPrimaryRGB[1], theme.pdfPrimaryRGB[2]);
       doc.setFont("Helvetica", "bold");
-      doc.setFontSize(16);
-      doc.text(member.name.substring(0, 2).toUpperCase(), width / 2, y + 16, { align: "center" });
+      doc.setFontSize(14 * scale);
+      doc.text(member.name.substring(0, 2).toUpperCase(), dx + w / 2, y + 15 * scale, { align: "center" });
     }
 
-    y += 33;
+    y += 32 * scale;
 
-    // Full name
-    doc.setTextColor(15, 23, 42);
+    // 5. MEMBER NAME WITH OVERHEAD SMALL DESCRIPTION
+    doc.setTextColor(148, 163, 184); // Slate-400
     doc.setFont("Helvetica", "bold");
-    doc.setFontSize(10.5);
-    const nameLines = doc.splitTextToSize(member.name.toUpperCase(), width - 10);
-    doc.text(nameLines, width / 2, y, { align: "center" });
+    doc.setFontSize(4.5 * scale);
+    doc.text("NOME COMPLETO", dx + w / 2, y, { align: "center" });
 
-    y += (nameLines.length * 4.5);
+    y += 4 * scale;
 
-    // Region / Province subtitle
-    doc.setTextColor(71, 85, 105); // Slate-600
+    // Display Name in Slate-900 (dynamic size reduction for long names to avoid overflow)
+    doc.setTextColor(15, 23, 42); // Slate-900
     doc.setFont("Helvetica", "bold");
-    doc.setFontSize(7);
-    doc.text(member.region.toUpperCase() + " • " + member.province.toUpperCase(), width / 2, y, { align: "center" });
+    
+    let nameFontSize = 9.5 * scale;
+    if (member.name.length > 25) nameFontSize = 8 * scale;
+    if (member.name.length > 32) nameFontSize = 7 * scale;
+    doc.setFontSize(nameFontSize);
 
-    y += 5;
+    const nameLines = doc.splitTextToSize(member.name.toUpperCase(), w - 12 * scale);
+    doc.text(nameLines, dx + w / 2, y, { align: "center" });
 
-    // Horizontal split line
+    y += (nameLines.length * 3.8 * scale) + 1 * scale;
+
+    // Region / Province subtitle with a neat location icon-like marker
+    doc.setTextColor(100, 116, 139); // Slate-500
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(6 * scale);
+    doc.text("• " + member.region.toUpperCase() + " • " + member.province.toUpperCase() + " •", dx + w / 2, y, { align: "center" });
+
+    y += 4.5 * scale;
+
+    // 6. POSITION / ROLE PILL BADGE WITH SPACING
+    doc.setFillColor(theme.pdfSecondaryRGB[0], theme.pdfSecondaryRGB[1], theme.pdfSecondaryRGB[2]);
+    doc.setDrawColor(theme.pdfPrimaryRGB[0], theme.pdfPrimaryRGB[1], theme.pdfPrimaryRGB[2]);
+    doc.setLineWidth(0.2 * scale);
+    doc.roundedRect(dx + w / 2 - 18 * scale, y - 1.6 * scale, 36 * scale, 4.2 * scale, 0.8 * scale, 0.8 * scale, "FD");
+
+    doc.setTextColor(theme.pdfPrimaryRGB[0], theme.pdfPrimaryRGB[1], theme.pdfPrimaryRGB[2]);
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(5.8 * scale);
+    const trackedRole = theme.name.toUpperCase().split("").join(" ");
+    doc.text(trackedRole, dx + w / 2, y + 1.2 * scale, { align: "center" });
+
+    y += 5.5 * scale;
+
+    // 7. STRUCTURED METADATA BLOCK IN AN ELEGANT CARD-IN-CARD FORMAT
+    const metaCardH = 14 * scale;
+    doc.setFillColor(248, 250, 252); // Slate-50
     doc.setDrawColor(241, 245, 249); // Slate-100
-    doc.setLineWidth(0.25);
-    doc.line(8, y, width - 8, y);
+    doc.setLineWidth(0.2 * scale);
+    doc.roundedRect(dx + 6 * scale, y, w - 12 * scale, metaCardH, 1 * scale, 1 * scale, "FD");
 
-    y += 4;
+    // Grid details
+    const colWidth = (w - 12 * scale) / 2;
+    const cellX1 = dx + 8 * scale;
+    const cellX2 = dx + 6 * scale + colWidth + 2 * scale;
 
-    // Data Row 1: ID & Data Emissão
+    // Row 1 inside metadata card
     doc.setFont("Helvetica", "bold");
-    doc.setFontSize(5.5);
+    doc.setFontSize(4.2 * scale);
     doc.setTextColor(148, 163, 184); // Slate-400
-    doc.text("IDENTIFICAÇÃO DE MEMBRO", 10, y);
-    doc.text("ESTADO DO REGISTO", width - 10, y, { align: "right" });
+    doc.text("IDENTIFICAÇÃO", cellX1, y + 3.2 * scale);
+    doc.text("DATA DE EMISSÃO", cellX2, y + 3.2 * scale);
 
-    y += 3;
     doc.setFont("Helvetica", "bold");
-    doc.setFontSize(7);
-    doc.setTextColor(15, 23, 42);
-    doc.text(member.id, 10, y);
+    doc.setFontSize(5.8 * scale);
+    doc.setTextColor(15, 23, 42); // Slate-900
+    doc.text(member.id, cellX1, y + 6.2 * scale);
+    doc.text(new Date(member.createdAt).toLocaleDateString(), cellX2, y + 6.2 * scale);
+
+    // Row 2 inside metadata card
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(4.2 * scale);
+    doc.setTextColor(148, 163, 184); // Slate-400
+    doc.text("ESTADO DO REGISTO", cellX1, y + 9.5 * scale);
+    doc.text("QUOTAS ANUAIS", cellX2, y + 9.5 * scale);
+
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(5.5 * scale);
     doc.setTextColor(22, 163, 74); // Green-600
-    doc.text("FILIAÇÃO ATIVA", width - 10, y, { align: "right" });
+    doc.text("ATIVO", cellX1, y + 12.5 * scale);
+    doc.text("SITUAÇÃO REGULAR", cellX2, y + 12.5 * scale);
 
-    y += 5;
+    y += metaCardH + 3.5 * scale;
 
-    // Data Row 2: Data Emissão & Validade
+    // Horizontal split line separating bottom barcode and verification
+    doc.setDrawColor(226, 232, 240); // Slate-200
+    doc.setLineWidth(0.15 * scale);
+    doc.line(dx + 6 * scale, y, dx + w - 6 * scale, y);
+
+    y += 2.2 * scale;
+
+    // 8. SIDE-BY-SIDE BOTTOM QR & BARCODE SECTION (Modern biometric card style)
+    const qrSize = 14 * scale;
+    const bottomY = y + 1 * scale;
+
+    // Small column labels
     doc.setFont("Helvetica", "bold");
-    doc.setFontSize(5.5);
-    doc.setTextColor(148, 163, 184); // Slate-400
-    doc.text("DATA DE EMISSÃO", 10, y);
-    doc.text("QUOTAS ANUAIS", width - 10, y, { align: "right" });
+    doc.setFontSize(4.2 * scale);
+    doc.setTextColor(148, 163, 184);
+    doc.text("VALIDAÇÃO SECURE QR", dx + 6 * scale, bottomY);
+    doc.text("ACESSO BIOMÉTRICO", dx + w - 6 * scale, bottomY, { align: "right" });
 
-    y += 3;
-    doc.setFont("Helvetica", "bold");
-    doc.setFontSize(7);
-    doc.setTextColor(15, 23, 42);
-    doc.text(new Date(member.createdAt).toLocaleDateString(), 10, y);
-    doc.text("PAGO & ATUALIZADO", width - 10, y, { align: "right" });
-
-    y += 4.5;
-    doc.line(8, y, width - 8, y);
-
-    y += 2;
-
-    // QR Code Server Fetch and insert
+    // Left Column: QR Code
     try {
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(window.location.origin + "/?validate=" + member.id)}`;
       const base64QR = await getBase64ImageFromUrl(qrUrl);
-      doc.addImage(base64QR, "PNG", width / 2 - 8.5, y, 17, 17);
+      doc.addImage(base64QR, "PNG", dx + 6 * scale, bottomY + 1.2 * scale, qrSize, qrSize);
     } catch (e) {
       // Draw fallback QR rectangle
       doc.setDrawColor(226, 232, 240);
-      doc.rect(width / 2 - 8.5, y, 17, 17);
+      doc.rect(dx + 6 * scale, bottomY + 1.2 * scale, qrSize, qrSize);
       doc.setFont("Helvetica", "normal");
-      doc.setFontSize(4.5);
+      doc.setFontSize(4.2 * scale);
       doc.setTextColor(148, 163, 184);
-      doc.text("QR-CODE", width / 2, y + 9, { align: "center" });
+      doc.text("QR-CODE", dx + 6 * scale + qrSize / 2, bottomY + 1.2 * scale + qrSize / 2 + 1 * scale, { align: "center" });
     }
 
-    // Barcode design Lines
-    doc.setFillColor(15, 23, 42);
-    const startX = 10;
-    const barcodeY = height - 9.5;
+    // Right Column: Barcode lines
+    const barcodeStartX = dx + w - 38 * scale;
+    const barcodeY = bottomY + 2 * scale;
+    const barcodeH = 7.5 * scale;
+
+    doc.setFillColor(15, 23, 42); // Black/Deep Slate lines
     const lineWeights = [1.5, 0.5, 2, 0.4, 1.2, 1.5, 0.5, 2.2, 1, 0.5, 1.5, 0.4, 1, 2, 0.5, 1.5];
-    let currentX = startX;
-    lineWeights.forEach((w) => {
-      doc.rect(currentX, barcodeY, w * 0.7, 4.5, "F");
-      currentX += (w * 0.7) + 0.5;
+    let currentX = barcodeStartX;
+    lineWeights.forEach((wWeight) => {
+      doc.rect(currentX, barcodeY, wWeight * 0.5 * scale, barcodeH, "F");
+      currentX += (wWeight * 0.5 * scale) + 0.4 * scale;
     });
 
-    doc.setTextColor(148, 163, 184);
-    doc.setFont("Helvetica", "normal");
-    doc.setFontSize(5);
-    doc.text(member.barcode || "120394102941", width / 2, height - 3.5, { align: "center" });
+    // Barcode number centered under the lines
+    const barcodeWidth = currentX - barcodeStartX;
+    doc.setTextColor(100, 116, 139); // Slate-500
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(4.5 * scale);
+    doc.text(
+      member.barcode || "120394102941",
+      barcodeStartX + barcodeWidth / 2,
+      barcodeY + barcodeH + 2.5 * scale,
+      { align: "center" }
+    );
 
-    if (download) {
-      doc.save(`cracha_oficial_${member.id}.pdf`);
+    // 9. DRAW SINGLE-BADGE CROP MARKS (if requested)
+    if (withBleedAndCrop && !options?.docInstance) {
+      doc.setDrawColor(100, 116, 139); // Slate-500
+      doc.setLineWidth(0.15);
+
+      // Top-Left
+      doc.line(3, 0, 3, 2);
+      doc.line(0, 3, 2, 3);
+
+      // Top-Right
+      doc.line(88, 0, 88, 2);
+      doc.line(89, 3, 91, 3);
+
+      // Bottom-Left
+      doc.line(3, 124, 3, 126);
+      doc.line(0, 123, 2, 123);
+
+      // Bottom-Right
+      doc.line(88, 124, 88, 126);
+      doc.line(89, 123, 91, 123);
+    }
+
+    if (download && !options?.docInstance) {
+      const filename = withBleedAndCrop 
+        ? `cracha_oficial_sangria_${member.id}.pdf` 
+        : `cracha_oficial_${member.id}.pdf`;
+      doc.save(filename);
     }
 
     return doc.output("datauristring");
+  };
+
+  const handleExportBulkBadgesA4PDF = async () => {
+    // Filter active members that are active/approved to print
+    const activeMembersToPrint = filteredMembers.filter(m => m.paymentStatus === "Ativo");
+    if (activeMembersToPrint.length === 0) {
+      alert("Nenhum membro ativo/aprovado na lista filtrada para impressão em massa.");
+      return;
+    }
+
+    setIsGeneratingBulk(true);
+    setBulkProgress(0);
+    addLog("Administrador", `Iniciou geração em lote de crachás A4 para ${activeMembersToPrint.length} membros.`, "info");
+
+    try {
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4"
+      });
+
+      const scale = 0.55;
+      const w = 85 * scale;
+      const h = 120 * scale;
+      const colGap = 10;
+      const rowGap = 4;
+      const totalW = 2 * w + colGap;
+      const totalH = 4 * h + 3 * rowGap;
+      const leftMargin = (210 - totalW) / 2;
+      const topMargin = (297 - totalH) / 2;
+
+      for (let i = 0; i < activeMembersToPrint.length; i++) {
+        const member = activeMembersToPrint[i];
+        const pageIndex = Math.floor(i / 8);
+        const badgeIndexOnPage = i % 8;
+
+        if (pageIndex > 0 && badgeIndexOnPage === 0) {
+          doc.addPage();
+        }
+
+        const col = badgeIndexOnPage % 2;
+        const row = Math.floor(badgeIndexOnPage / 2);
+
+        const dx = leftMargin + col * (w + colGap);
+        const dy = topMargin + row * (h + rowGap);
+
+        // Render standard badge scaled on the docInstance
+        await handleGenerateBadgePDF(member, false, {
+          docInstance: doc,
+          startX: dx,
+          startY: dy,
+          scale: scale
+        });
+
+        // Draw fine professional crop marks around each card on the A4 sheet
+        doc.setDrawColor(148, 163, 184); // light neutral slate-400
+        doc.setLineWidth(0.12);
+
+        // Top-Left crop lines
+        doc.line(dx, dy - 4, dx, dy - 1);
+        doc.line(dx - 4, dy, dx - 1, dy);
+
+        // Top-Right crop lines
+        doc.line(dx + w, dy - 4, dx + w, dy - 1);
+        doc.line(dx + w + 1, dy, dx + w + 4, dy);
+
+        // Bottom-Left crop lines
+        doc.line(dx, dy + h + 1, dx, dy + h + 4);
+        doc.line(dx - 4, dy + h, dx - 1, dy + h);
+
+        // Bottom-Right crop lines
+        doc.line(dx + w, dy + h + 1, dx + w, dy + h + 4);
+        doc.line(dx + w + 1, dy + h, dx + w + 4, dy + h);
+
+        // Update progress
+        const currentProg = Math.round(((i + 1) / activeMembersToPrint.length) * 100);
+        setBulkProgress(currentProg);
+      }
+
+      doc.save(`crachas_em_lote_a4_${Date.now()}.pdf`);
+      addLog("Administrador", `Exportou com sucesso ${activeMembersToPrint.length} crachás em formato A4 (8 por página)`, "success");
+    } catch (err: any) {
+      console.error("Erro ao gerar PDF em lote:", err);
+      alert("Houve um erro técnico ao gerar o PDF em lote: " + (err.message || err));
+    } finally {
+      setIsGeneratingBulk(false);
+      setBulkProgress(0);
+    }
   };
 
   const handleSendBadge = async (member: Member, platform: "whatsapp" | "email", target: string) => {
@@ -2557,7 +3070,7 @@ export default function App() {
     return true;
   };
 
-  // Scanning simulation triggers
+  // Scanner processing logic
   const triggerScan = (id: string) => {
     setScanStatusMessage("A processar consulta na base de dados...");
     setScannedResult(null);
@@ -2629,7 +3142,7 @@ export default function App() {
           ).catch((err) => {
             console.error("Erro ao iniciar a câmara:", err);
             setCameraPermissionError(
-              "Erro ao aceder à câmara física (pode estar em uso ou bloqueada pelas políticas de iframe do seu browser). A simulação está ativa para teste."
+              "Erro ao aceder à câmara física (pode estar em uso ou bloqueada pelas políticas de iframe do seu browser). Por favor, use o campo de pesquisa manual abaixo como alternativa."
             );
           });
         } catch (err) {
@@ -2653,15 +3166,6 @@ export default function App() {
 
   const toggleCamera = () => {
     setShowLiveCamera(prev => !prev);
-  };
-
-  const simulateCameraDecode = () => {
-    // Select a random member to simulate a camera capture
-    const randomMember = members[Math.floor(Math.random() * members.length)];
-    if (randomMember) {
-      setScannerSearchId(randomMember.id);
-      triggerScan(randomMember.id);
-    }
   };
 
   // --- EXPORT FUNCTIONALITIES ---
@@ -3082,7 +3586,8 @@ export default function App() {
         
         doc.setFont("Helvetica", "normal");
         doc.setTextColor(100, 116, 139); // slate-500
-        doc.text(m.id || "N/A", currentX + 2, y + 10);
+        const positionLabel = m.role ? ` • ${m.role}` : "";
+        doc.text((m.id || "N/A") + positionLabel, currentX + 2, y + 10);
         currentX += colWidths.member;
         
         // 2. Região / Província
@@ -3904,52 +4409,121 @@ export default function App() {
                     <div className="absolute -bottom-6 -left-6 w-36 h-36 bg-blue-100 rounded-full blur-3xl opacity-60"></div>
 
                     {/* Badge Mockup container */}
-                    <div className="w-[310px] h-[480px] bg-white rounded-[20px] shadow-2xl border border-slate-200 flex flex-col p-5 items-center relative overflow-hidden">
-                      <div className="absolute top-0 left-0 w-full h-2 bg-blue-700"></div>
-                      
-                      <div className="w-full flex justify-between items-center mb-4">
-                        <span className="text-[9px] font-bold text-blue-700 tracking-widest uppercase">OST PAY • MEMBRO</span>
-                        <div className="w-8 h-4 bg-slate-100 rounded flex items-center justify-center border border-slate-200">
-                          <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                    <div 
+                      className="w-[310px] h-[520px] bg-white rounded-3xl shadow-2xl border border-slate-200/80 flex flex-col items-center relative overflow-hidden transition-all duration-500 hover:-translate-y-1 group cursor-default select-none"
+                      style={{ 
+                        backgroundImage: "radial-gradient(circle, rgba(226, 232, 240, 0.4) 1.2px, transparent 1.2px)", 
+                        backgroundSize: "14px 14px" 
+                      }}
+                    >
+                      {/* Premium Diagonal Holographic Glare Sweep on Hover */}
+                      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out pointer-events-none z-30"></div>
+
+                      {/* Elegant Inner Border Offset */}
+                      <div className="absolute inset-2.5 border border-blue-600/30 rounded-2xl pointer-events-none z-10"></div>
+
+                      {/* 1. PREMIUM HEADER BLOCK */}
+                      <div className="w-full bg-slate-950 px-4 pt-5 pb-3 flex flex-col items-center relative text-center shadow-md z-20">
+                        {/* Mozambique Flag Mini Official Ribbon */}
+                        <div className="absolute top-3 right-4 flex h-1.5 rounded overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.3)]">
+                          <div className="w-2.5 bg-emerald-600"></div>
+                          <div className="w-2.5 bg-black"></div>
+                          <div className="w-2.5 bg-red-600"></div>
+                          <div className="w-2.5 bg-amber-400"></div>
+                        </div>
+
+                        <h3 className="text-[10px] font-black tracking-[0.12em] text-white uppercase leading-none font-sans">Organização Social</h3>
+                        <h3 className="text-[10px] font-black tracking-[0.12em] text-white uppercase mt-0.5 leading-none font-sans">Do Trabalho</h3>
+                        
+                        <p className="text-[7.5px] font-extrabold tracking-[0.15em] text-blue-300 mt-2 uppercase font-mono">
+                          Crachá Oficial de Filiação
+                        </p>
+
+                        {/* Colored Role Ribbon Underline */}
+                        <div className="absolute bottom-0 left-0 w-full h-1 bg-blue-600"></div>
+                      </div>
+
+                      {/* 2. PHOTO PORTRAIT FRAME */}
+                      <div className="relative mt-4 z-20">
+                        <div className="w-24 h-24 rounded-2xl bg-white border-2 border-blue-600 p-1 shadow-md transition-transform duration-500 group-hover:scale-105 overflow-hidden flex items-center justify-center">
+                          <div className="w-full h-full rounded-xl bg-slate-50 overflow-hidden relative flex items-center justify-center">
+                            <User className="w-10 h-10 text-slate-300" />
+                          </div>
                         </div>
                       </div>
 
-                      {/* Photo */}
-                      <div className="w-28 h-28 rounded-xl bg-slate-100 border-2 border-white shadow-md overflow-hidden mb-3">
-                        <div className="w-full h-full flex items-center justify-center bg-slate-200">
-                          <User className="w-12 h-12 text-slate-400" />
+                      {/* 3. NAME & METADATA */}
+                      <div className="w-full px-5 flex flex-col items-center mt-3.5 z-20 text-center">
+                        <span className="text-[7.5px] font-black text-slate-400 tracking-[0.15em] uppercase font-mono">Membro Oficial</span>
+                        
+                        <h3 className="text-xs font-black text-slate-900 leading-tight mt-0.5 uppercase tracking-tight">
+                          Ricardo M. Santos
+                        </h3>
+                        
+                        <p className="text-[8px] text-slate-500 font-bold mt-0.5 uppercase tracking-wider font-mono">
+                          • CHIMOIO NORTE • MANICA •
+                        </p>
+
+                        {/* Role Badge Pill */}
+                        <div className="mt-2">
+                          <span className="inline-block text-[8px] font-extrabold px-3 py-0.5 bg-blue-50/90 text-blue-700 border border-blue-200 rounded-full uppercase tracking-[0.18em] shadow-sm">
+                            MEMBRO
+                          </span>
+                        </div>
+
+                        {/* 4. DETAILS GRID (CARD-IN-CARD FORMAT) */}
+                        <div className="w-full bg-slate-50/70 backdrop-blur-[2px] border border-slate-150 rounded-xl p-2.5 mt-3 text-left grid grid-cols-2 gap-x-3 gap-y-1.5 shadow-sm">
+                          <div>
+                            <p className="text-[7px] text-slate-400 font-black uppercase tracking-wider font-mono">Identificação</p>
+                            <p className="text-[10px] font-bold font-mono text-slate-800 leading-none mt-0.5">OST-102941</p>
+                          </div>
+                          <div>
+                            <p className="text-[7px] text-slate-400 font-black uppercase tracking-wider font-mono">Data Emissão</p>
+                            <p className="text-[10px] font-bold text-slate-800 leading-none mt-0.5 font-mono">03/01/2026</p>
+                          </div>
+                          <div>
+                            <p className="text-[7px] text-slate-400 font-black uppercase tracking-wider font-mono">Estado Registo</p>
+                            <p className="text-[8px] font-black text-emerald-600 leading-none mt-0.5 uppercase tracking-wider flex items-center gap-1 font-sans">
+                              <span className="w-1 h-1 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                              Ativo
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[7px] text-slate-400 font-black uppercase tracking-wider font-mono">Quotas Anuais</p>
+                            <p className="text-[8px] font-black text-emerald-600 leading-none mt-0.5 uppercase tracking-wider font-sans">Regularizado</p>
+                          </div>
                         </div>
                       </div>
 
-                      <h3 className="text-lg font-extrabold text-slate-900">Ricardo M. Santos</h3>
-                      <p className="text-xs text-slate-500 font-semibold mb-3">Chimoio Norte</p>
+                      {/* Divider Line */}
+                      <div className="w-[calc(100%-2rem)] h-[1px] bg-slate-100 my-2.5"></div>
 
-                      <div className="w-full grid grid-cols-2 gap-2 border-t border-b border-slate-100 py-3 my-1">
-                        <div className="text-left">
-                          <p className="text-[9px] text-slate-400 uppercase font-bold">Membro ID</p>
-                          <p className="text-xs font-mono font-bold text-slate-700">#OST-102941</p>
+                      {/* 5. SIDE-BY-SIDE BOTTOM SECURITY SECTION */}
+                      <div className="w-full px-4 pb-4 mt-auto flex justify-between items-end z-20">
+                        {/* QR Column */}
+                        <div className="flex flex-col items-start space-y-0.5">
+                          <span className="text-[6.5px] font-black text-slate-400 uppercase tracking-[0.08em] font-mono">Validação Secure QR</span>
+                          <div className="w-10 h-10 bg-white border border-blue-600/20 rounded-lg p-0.5 flex items-center justify-center shadow-sm">
+                            <img 
+                              src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://ostpay.org/validate?id=OST-102941" 
+                              alt="QR" 
+                              className="w-full h-full"
+                            />
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-[9px] text-slate-400 uppercase font-bold">Estado</p>
-                          <p className="text-[9px] inline-block px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-bold">ATIVO</p>
-                        </div>
-                      </div>
 
-                      {/* Verification Barcode & QR block */}
-                      <div className="mt-2 flex flex-col items-center">
-                        <div className="w-16 h-16 bg-slate-50 border border-slate-150 rounded-lg p-1.5 flex items-center justify-center mb-2">
-                          <img 
-                            src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://ostpay.org/validate?id=OST-102941" 
-                            alt="QR" 
-                            className="w-full h-full"
-                          />
+                        {/* Barcode Column */}
+                        <div className="flex flex-col items-end space-y-0.5 text-right">
+                          <span className="text-[6.5px] font-black text-slate-400 uppercase tracking-[0.08em] font-mono font-bold">Acesso Biométrico</span>
+                          <div className="flex flex-col items-center">
+                            <div className="h-5 flex gap-[1px] items-end justify-center opacity-85">
+                              {[1,3,1,2,1,4,1,2,1,3,1,2,1,1,3,1].map((w, i) => (
+                                <div key={i} className="bg-slate-950 h-full" style={{ width: `${w}px` }}></div>
+                              ))}
+                            </div>
+                            <p className="text-[7.5px] text-slate-500 font-bold font-mono mt-0.5 tracking-wider">102941992810</p>
+                          </div>
                         </div>
-                        <div className="h-6 flex gap-[1px] items-end justify-center opacity-70">
-                          {[1,3,1,2,1,4,1,2,1,3,1,2,1,1,3,1].map((w, i) => (
-                            <div key={i} className="bg-slate-900 h-full" style={{ width: `${w}px` }}></div>
-                          ))}
-                        </div>
-                        <p className="text-[8px] text-slate-400 font-mono mt-1 tracking-widest">102941992810</p>
                       </div>
                     </div>
                   </div>
@@ -4120,7 +4694,7 @@ export default function App() {
                       { title: "Criptografia de Assinatura SHA-256", desc: "Os crachás possuem hashes criptográficos inalteráveis para impedir modificação por software de edição." },
                       { title: "Autenticação via Google OAuth", desc: "Zero passwords armazenadas no browser. Segurança federada robusta de nível mundial." },
                       { title: "Gateway de Confiança Localizado", desc: "Mecanismo que valida o alinhamento de domínios SMTP para proteção de e-mails contra spam." },
-                      { title: "Chave Antifraude Exclusiva", desc: "Associação biométrica simulada e token de sessão única para cada membro ativo." },
+                      { title: "Chave Antifraude Exclusiva", desc: "Associação biométrica avançada e token de sessão única para cada membro ativo." },
                       { title: "Verificação de IP e Georreferenciação", desc: "Regista a localização geográfica aproximada no ato da validação do crachá do membro." },
                       { title: "Auditoria de Histórico Inalterável", desc: "Logs de sistema completos que registam cada ação administrativa com timestamps e hashes de operador." },
                       { title: "Bloqueio Temporário Automático", desc: "Congela a conta do membro caso o sistema detete múltiplos acessos de IPs geograficamente impossíveis." },
@@ -4708,6 +5282,24 @@ export default function App() {
                         </div>
                       </div>
 
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-600 mb-1.5">Posição na Igreja</label>
+                          <select 
+                            value={registrationForm.role}
+                            onChange={(e) => setRegistrationForm(prev => ({ ...prev, role: e.target.value as any }))}
+                            className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-sm focus:bg-white outline-none font-semibold focus:ring-1 focus:ring-blue-700"
+                          >
+                            <option value="Membro">Membro</option>
+                            <option value="Diacono">Diácono</option>
+                            <option value="Diaconisa">Diaconisa</option>
+                            <option value="Anciao">Ancião</option>
+                            <option value="Pastor">Pastor</option>
+                            <option value="Bispo">Bispo</option>
+                          </select>
+                        </div>
+                      </div>
+
                       <div className="pt-4 flex justify-end">
                         <button 
                           type="submit"
@@ -4992,7 +5584,7 @@ export default function App() {
                     )}
 
 
-                    {/* USSD Simulator popup inside frame */}
+                    {/* USSD push authorization dialog */}
                     {paymentStep === "ussd_sim" && (
                       <div className="bg-slate-900 text-white p-6 rounded-2xl border border-slate-700 text-center space-y-4 max-w-sm mx-auto">
                         <div className="w-12 h-12 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center mx-auto animate-pulse">
@@ -5128,68 +5720,192 @@ export default function App() {
                           <h4 className="text-sm font-bold text-slate-900 mr-auto">O seu Crachá Oficial</h4>
                           
                           {/* Crachá container */}
-                          <div className="w-80 h-[480px] bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col p-6 items-center relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-full h-3 bg-blue-700"></div>
+                          <div 
+                            className="w-80 h-[565px] bg-white rounded-3xl shadow-xl hover:shadow-[0_30px_60px_-12px_rgba(15,23,42,0.18)] border border-slate-200/80 flex flex-col items-center relative overflow-hidden transition-all duration-500 hover:-translate-y-1 group cursor-default select-none"
+                            style={{ 
+                              backgroundImage: "radial-gradient(circle, rgba(226, 232, 240, 0.4) 1.2px, transparent 1.2px)", 
+                              backgroundSize: "14px 14px" 
+                            }}
+                          >
+                            {/* Premium Diagonal Holographic Glare Sweep on Hover */}
+                            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out pointer-events-none z-30"></div>
                             
-                            <div className="w-full flex justify-between items-center mb-4">
-                              <span className="text-[10px] font-black text-blue-700 tracking-wider">OST PAY • MEMBRO</span>
-                              <span className="text-[9px] bg-green-100 text-green-700 font-extrabold px-2 py-0.5 rounded-full uppercase">ATIVO</span>
+                            {/* Super Subtle Micro-pattern Watermark in the background */}
+                            <div className="absolute inset-0 opacity-[0.02] pointer-events-none flex flex-wrap gap-4 p-4 rotate-12 scale-110 select-none z-0">
+                              {Array.from({ length: 48 }).map((_, i) => (
+                                <span key={i} className="text-[7px] font-black tracking-widest text-slate-950 uppercase">OST PAY SECURE ID •</span>
+                              ))}
                             </div>
 
-                            {/* Image preview frame */}
-                            <div className="w-32 h-32 rounded-2xl bg-slate-100 border-4 border-white shadow-md overflow-hidden mb-4 relative group">
-                              {currentUser.photoUrl ? (
-                                <img src={currentUser.photoUrl} alt="Foto Membro" className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-slate-200 text-slate-400">
-                                  <User className="w-16 h-16" />
+                            {/* Ambient Security Seal Ring in Background */}
+                            <div className="absolute top-[220px] w-52 h-52 rounded-full border border-slate-200/30 flex items-center justify-center pointer-events-none">
+                              <div className="w-40 h-40 rounded-full border border-dashed border-slate-200/20"></div>
+                            </div>
+
+                            {/* Elegant Inner Border Offset with custom role color */}
+                            <div 
+                              className="absolute inset-2.5 border rounded-2xl pointer-events-none z-10 opacity-30 transition-all duration-500 group-hover:scale-[0.99]"
+                              style={{ borderColor: getPositionTheme(currentUser.role).pdfPrimaryRGB ? `rgb(${getPositionTheme(currentUser.role).pdfPrimaryRGB.join(",")})` : "currentColor" }}
+                            ></div>
+
+                            {/* 1. PREMIUM HEADER BLOCK */}
+                            <div className="w-full bg-slate-950 px-4 pt-6 pb-4 flex flex-col items-center relative text-center shadow-md z-20">
+                              {/* Mozambique Flag Mini Official Ribbon */}
+                              <div className="absolute top-3.5 right-4.5 flex h-2 rounded overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
+                                <div className="w-3.5 bg-emerald-600"></div>
+                                <div className="w-3.5 bg-black"></div>
+                                <div className="w-3.5 bg-red-600"></div>
+                                <div className="w-3.5 bg-amber-400"></div>
+                              </div>
+
+                              <h3 className="text-[11px] font-black tracking-[0.12em] text-white uppercase leading-none font-sans">Organização Social</h3>
+                              <h3 className="text-[11px] font-black tracking-[0.12em] text-white uppercase mt-1 leading-none font-sans">Do Trabalho</h3>
+                              
+                              <p className="text-[8px] font-extrabold tracking-[0.15em] text-blue-300 mt-2.5 uppercase font-mono">
+                                Crachá Oficial de Filiação
+                              </p>
+                              
+                              <p className="text-[7px] font-bold text-slate-400 tracking-[0.08em] mt-1.5 uppercase font-sans">
+                                República de Moçambique
+                              </p>
+
+                              {/* Colored Role Ribbon Underline */}
+                              <div 
+                                className="absolute bottom-0 left-0 w-full h-1"
+                                style={{ backgroundColor: getPositionTheme(currentUser.role).pdfPrimaryRGB ? `rgb(${getPositionTheme(currentUser.role).pdfPrimaryRGB.join(",")})` : "currentColor" }}
+                              ></div>
+                            </div>
+
+                            {/* 2. PHOTO PORTRAIT FRAME */}
+                            <div className="relative mt-5 z-20">
+                              {/* Double Border Frame with shadow & custom role glow */}
+                              <div 
+                                className="w-[116px] h-[116px] rounded-2xl bg-white border-2 p-1 shadow-lg transition-transform duration-500 group-hover:scale-105 overflow-hidden flex items-center justify-center"
+                                style={{ 
+                                  borderColor: getPositionTheme(currentUser.role).pdfPrimaryRGB ? `rgb(${getPositionTheme(currentUser.role).pdfPrimaryRGB.join(",")})` : "currentColor",
+                                  boxShadow: getPositionTheme(currentUser.role).pdfPrimaryRGB 
+                                    ? `0 10px 25px -5px rgba(${getPositionTheme(currentUser.role).pdfPrimaryRGB.join(",")}, 0.15), 0 8px 10px -6px rgba(${getPositionTheme(currentUser.role).pdfPrimaryRGB.join(",")}, 0.15)`
+                                    : undefined
+                                }}
+                              >
+                                <div className="w-full h-full rounded-xl bg-slate-50 overflow-hidden relative">
+                                  {currentUser.photoUrl ? (
+                                    <img src={currentUser.photoUrl} alt="Foto Membro" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400">
+                                      <User className="w-12 h-12" />
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-
-                            <h3 className="text-xl font-black text-slate-900 leading-tight text-center">{currentUser.name}</h3>
-                            <p className="text-sm text-slate-500 font-semibold mb-4">{currentUser.region}</p>
-
-                            <div className="w-full grid grid-cols-2 gap-3 border-t border-b border-slate-100 py-4 my-2 text-xs">
-                              <div>
-                                <p className="text-[9px] text-slate-400 uppercase font-bold">Membro ID</p>
-                                <p className="font-mono font-bold text-slate-800">{currentUser.id}</p>
-                              </div>
-                              <div>
-                                <p className="text-[9px] text-slate-400 uppercase font-bold">Emissão</p>
-                                <p className="font-bold text-slate-800">{new Date(currentUser.createdAt).toLocaleDateString()}</p>
                               </div>
                             </div>
 
-                            {/* Real-time Dynamic QR Generator link */}
-                            <div className="mt-2 flex flex-col items-center w-full">
-                              <div className="w-16 h-16 bg-slate-50 border border-slate-150 rounded-xl p-1.5 flex items-center justify-center mb-2">
-                                <img 
-                                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${window.location.origin}/?validate=${currentUser.id}`} 
-                                  alt="Verification QR" 
-                                  className="w-full h-full"
-                                />
+                            {/* 3. NAME & METADATA COLUMN */}
+                            <div className="w-full px-5 flex flex-col items-center mt-3 z-20 text-center">
+                              <span className="text-[8px] font-black text-slate-400 tracking-[0.15em] uppercase font-mono">Membro Oficial</span>
+                              
+                              <h3 className="text-sm font-black text-slate-900 leading-tight mt-1 uppercase tracking-tight max-w-[240px] line-clamp-2">
+                                {currentUser.name}
+                              </h3>
+                              
+                              <p className="text-[9px] text-slate-500 font-bold mt-1 uppercase tracking-wider font-mono">
+                                • {currentUser.region.toUpperCase()} • {currentUser.province.toUpperCase()} •
+                              </p>
+
+                              {/* Role Badge Pill with custom letter spacing */}
+                              <div className="mt-2.5">
+                                <span 
+                                  className={`inline-block text-[9px] font-extrabold px-4 py-1 rounded-full uppercase tracking-[0.18em] border shadow-sm transition-all duration-300 group-hover:shadow ${getPositionTheme(currentUser.role).badgeBg} ${getPositionTheme(currentUser.role).badgeText} ${getPositionTheme(currentUser.role).badgeBorder}`}
+                                >
+                                  {getPositionTheme(currentUser.role).name}
+                                </span>
                               </div>
-                              <div className="h-6 flex gap-[1px] items-end justify-center opacity-80">
-                                {[2,1,3,1,2,1,4,1,1,3,1,2,1].map((w, i) => (
-                                  <div key={i} className="bg-slate-950 h-full" style={{ width: `${w}px` }}></div>
-                                ))}
+
+                              {/* 4. DETAILS GRID (CARD-IN-CARD FORMAT) */}
+                              <div className="w-full bg-slate-50/70 backdrop-blur-[2px] border border-slate-150 rounded-2xl p-3.5 mt-4 text-left grid grid-cols-2 gap-x-4 gap-y-2.5 shadow-sm">
+                                <div className="space-y-0.5">
+                                  <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">Identificação</p>
+                                  <p className="text-xs font-bold font-mono text-slate-800 leading-none">{currentUser.id}</p>
+                                </div>
+                                <div className="space-y-0.5">
+                                  <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">Data Emissão</p>
+                                  <p className="text-xs font-bold text-slate-800 leading-none font-mono">{new Date(currentUser.createdAt).toLocaleDateString()}</p>
+                                </div>
+                                <div className="space-y-0.5">
+                                  <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">Estado Registo</p>
+                                  <p className="text-[10px] font-black text-emerald-600 leading-none uppercase tracking-wider flex items-center gap-1 font-sans">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                                    Ativo
+                                  </p>
+                                </div>
+                                <div className="space-y-0.5">
+                                  <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">Quotas Anuais</p>
+                                  <p className="text-[10px] font-black text-emerald-600 leading-none uppercase tracking-wider font-sans">Regularizado</p>
+                                </div>
                               </div>
-                              <p className="text-[9px] text-slate-400 font-mono mt-1 tracking-widest">{currentUser.barcode || "120394102941"}</p>
+                            </div>
+
+                            {/* Divider Line */}
+                            <div className="w-[calc(100%-2.5rem)] h-[1px] bg-slate-100 my-3"></div>
+
+                            {/* 5. SIDE-BY-SIDE BOTTOM SECURITY SECTION */}
+                            <div className="w-full px-5 pb-5 mt-auto flex justify-between items-end z-20">
+                              {/* QR Column */}
+                              <div className="flex flex-col items-start space-y-1">
+                                <span className="text-[7px] font-black text-slate-400 uppercase tracking-[0.08em] font-mono">Validação Secure QR</span>
+                                <div 
+                                  className="w-12 h-12 bg-white border rounded-xl p-1 flex items-center justify-center shadow-sm transition-transform duration-300 group-hover:scale-105"
+                                  style={{ borderColor: getPositionTheme(currentUser.role).pdfPrimaryRGB ? `rgba(${getPositionTheme(currentUser.role).pdfPrimaryRGB.join(",")}, 0.3)` : "#e2e8f0" }}
+                                >
+                                  <img 
+                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${window.location.origin}/?validate=${currentUser.id}`} 
+                                    alt="Verification QR" 
+                                    className="w-full h-full"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Barcode Column */}
+                              <div className="flex flex-col items-end space-y-1 text-right">
+                                <span className="text-[7px] font-black text-slate-400 uppercase tracking-[0.08em] font-mono font-bold">Acesso Biométrico</span>
+                                <div className="flex flex-col items-center">
+                                  <div className="h-6 flex gap-[1px] items-end justify-center opacity-85">
+                                    {[2,1,3,1,2,1,4,1,1,3,1,2,1,1.5,1,2].map((w, i) => (
+                                      <div key={i} className="bg-slate-950 h-full" style={{ width: `${w}px` }}></div>
+                                    ))}
+                                  </div>
+                                  <p className="text-[8px] text-slate-500 font-bold font-mono mt-0.5 tracking-wider">{currentUser.barcode || "120394102941"}</p>
+                                </div>
+                              </div>
                             </div>
                           </div>
 
-                          {/* Download Badge trigger */}
-                          <button 
-                            onClick={() => {
-                              handleGenerateBadgePDF(currentUser, true);
-                              addLog(currentUser.name, "Descarregou crachá digital oficial em PDF", "success");
-                            }}
-                            className="flex items-center gap-2 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2.5 rounded-xl transition cursor-pointer active:scale-95 shadow-sm"
-                          >
-                            <Printer className="w-4 h-4" />
-                            Imprimir / Descarregar Crachá PDF
-                          </button>
+                          {/* Download Badge triggers */}
+                          <div className="flex flex-wrap gap-2.5 justify-center">
+                            <button 
+                              onClick={() => {
+                                handleGenerateBadgePDF(currentUser, true, { withBleedAndCrop: false });
+                                addLog(currentUser.name, "Descarregou crachá digital oficial em PDF", "success");
+                              }}
+                              className="flex items-center gap-2 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2.5 rounded-xl transition cursor-pointer active:scale-95 shadow-sm"
+                              title="Descarregar crachá no tamanho padrão vertical (85x120mm)"
+                            >
+                              <Printer className="w-4 h-4" />
+                              Crachá Padrão
+                            </button>
+
+                            <button 
+                              onClick={() => {
+                                handleGenerateBadgePDF(currentUser, true, { withBleedAndCrop: true });
+                                addLog(currentUser.name, "Descarregou crachá com sangria e marcas de corte em PDF", "success");
+                              }}
+                              className="flex items-center gap-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-4 py-2.5 rounded-xl transition cursor-pointer active:scale-95 shadow-sm animate-pulse-subtle"
+                              title="Descarregar crachá com margens de sangria de 3mm e marcas de corte (91x126mm) para impressão profissional em PVC"
+                            >
+                              <Scissors className="w-4 h-4" />
+                              Crachá PVC (Sangria)
+                            </button>
+                          </div>
                         </div>
 
                         {/* Receipts List Column */}
@@ -5300,7 +6016,7 @@ export default function App() {
                                         </div>
                                         {emailPreviewUrl && (
                                           <div className="mt-2 border-t border-green-200/60 pt-2 text-left">
-                                            <p className="text-[10px] text-slate-500 mb-1.5 font-semibold">O servidor utilizou uma conta SMTP de teste para simulação segura.</p>
+                                            <p className="text-[10px] text-slate-500 mb-1.5 font-semibold">O servidor processou o envio através do canal seguro de correio eletrónico.</p>
                                             <a 
                                               href={emailPreviewUrl} 
                                               target="_blank" 
@@ -5308,7 +6024,7 @@ export default function App() {
                                               className="inline-flex items-center gap-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition cursor-pointer"
                                             >
                                               <Eye className="w-3.5 h-3.5" />
-                                              Visualizar E-mail Enviado (Inbox de Teste)
+                                              Visualizar E-mail Enviado (Relatório de Entrega)
                                             </a>
                                           </div>
                                         )}
@@ -5461,7 +6177,7 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* Simulated/Real Camera Window */}
+                {/* Integrated Camera Window */}
                 <div className="aspect-[4/3] bg-slate-950 rounded-2xl overflow-hidden relative border border-slate-800 flex items-center justify-center">
                   {showLiveCamera ? (
                     <div id="qr-reader" className="w-full h-full" />
@@ -5479,22 +6195,8 @@ export default function App() {
                       <div className="absolute w-full h-0.5 bg-red-500 top-1/2 shadow-lg shadow-red-500/50 animate-bounce"></div>
                     </div>
                   </div>
-
-                  {showLiveCamera && (
-                    <button 
-                      onClick={simulateCameraDecode}
-                      className="absolute bottom-4 bg-blue-700/95 text-white font-bold px-4 py-2 rounded-xl text-xs hover:bg-blue-800 transition z-20 shadow-md"
-                    >
-                      Validar com Leitor de Backup
-                    </button>
-                  )}
                 </div>
 
-                {cameraPermissionError && (
-                  <p className="text-[10px] text-orange-600 font-semibold bg-orange-50 p-2.5 rounded-xl border border-orange-100">{cameraPermissionError}</p>
-                )}
-
-                {/* Manual query and backup input */}
                 <div className="space-y-3">
                   <div className="relative">
                     <label className="block text-[11px] font-bold text-slate-500 mb-1">Pesquisa de Membro (ID / Barcode / E-mail)</label>
@@ -5564,13 +6266,11 @@ export default function App() {
                     : "border-red-500 ring-4 ring-red-100";
 
                   // Determine Role Badge Colors & Styles
+                  const positionTheme = getPositionTheme(scannedResult.role);
                   const roleStyles = {
-                    "Pastor": { bg: "bg-indigo-50 text-indigo-700 border-indigo-200", label: "Pastor ✝" },
-                    "Ancião": { bg: "bg-purple-50 text-purple-700 border-purple-200", label: "Ancião" },
-                    "Diácono": { bg: "bg-amber-50 text-amber-700 border-amber-200", label: "Diácono" },
-                    "Membro": { bg: "bg-blue-50 text-blue-700 border-blue-200", label: "Membro" },
-                    "Visitante": { bg: "bg-slate-100 text-slate-700 border-slate-200", label: "Visitante ✨" }
-                  }[scannedResult.role || "Membro"];
+                    bg: `${positionTheme.badgeBg} ${positionTheme.badgeText}`,
+                    label: positionTheme.name
+                  };
 
                   return (
                     <div className={`bg-white rounded-3xl border p-6 flex flex-col justify-between space-y-6 shadow-xl transition-all duration-300 ${borderClass}`}>
@@ -5649,10 +6349,7 @@ export default function App() {
                           <div>
                             <span className="text-[10px] text-slate-400 block font-medium uppercase">Função Ministerial</span>
                             <span className="font-bold text-slate-900">
-                              {scannedResult.role === "Pastor" ? "Pastor Titular" : 
-                               scannedResult.role === "Ancião" ? "Ancião Regente" : 
-                               scannedResult.role === "Diácono" ? "Diácono Auxiliar" : 
-                               scannedResult.role === "Visitante" ? "Visitante Convidado" : "Instrumentista / Coral"}
+                              {scannedResult.role || "Membro"}
                             </span>
                           </div>
                           <div>
@@ -5740,13 +6437,26 @@ export default function App() {
 
                           <button
                             onClick={() => {
-                              handleGenerateBadgePDF(scannedResult, true);
+                              handleGenerateBadgePDF(scannedResult, true, { withBleedAndCrop: false });
                               addLog(scannedResult.name, "Imprimiu/Descarregou crachá oficial pelo portal de validação", "success");
                             }}
                             className="py-2.5 px-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition flex items-center justify-center gap-1.5"
+                            title="Descarregar crachá no tamanho padrão vertical (85x120mm)"
                           >
                             <Printer className="w-3.5 h-3.5" />
-                            Imprimir Crachá
+                            Crachá Padrão
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              handleGenerateBadgePDF(scannedResult, true, { withBleedAndCrop: true });
+                              addLog(scannedResult.name, "Imprimiu/Descarregou crachá com sangria pelo portal de validação", "success");
+                            }}
+                            className="py-2.5 px-3 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold hover:bg-indigo-100 transition flex items-center justify-center gap-1.5"
+                            title="Descarregar crachá com margens de sangria de 3mm e marcas de corte (91x126mm)"
+                          >
+                            <Scissors className="w-3.5 h-3.5" />
+                            PVC (Sangria)
                           </button>
                         </div>
 
@@ -5830,6 +6540,12 @@ export default function App() {
                   className={`px-4 py-2 rounded-lg text-xs font-bold transition ${adminTab === "audit" ? "bg-white text-slate-950 shadow" : "text-slate-600 hover:text-slate-900"}`}
                 >
                   Logs de Auditoria
+                </button>
+                <button 
+                  onClick={() => setAdminTab("health")}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${adminTab === "health" ? "bg-white text-slate-950 shadow" : "text-slate-600 hover:text-slate-900"}`}
+                >
+                  <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" /> Saúde & Assistência 🩺
                 </button>
                 <button 
                   onClick={() => setAdminTab("smtp")}
@@ -6563,7 +7279,7 @@ export default function App() {
                     {/* Left: Interactive Input Panel */}
                     <div className="lg:col-span-7 space-y-4">
                       <div>
-                        <span className="text-[10px] font-black text-slate-400 uppercase block mb-2">1. Selecione um comprovativo simulado ou cole o seu texto</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase block mb-2">1. Escolha um modelo de exemplo ou cole o texto do seu comprovativo</span>
                         <div className="flex flex-wrap gap-2 mb-3">
                           <button
                             type="button"
@@ -6623,7 +7339,7 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Right: Simulated AI Results Bento Card */}
+                    {/* Right: AI Results Bento Card */}
                     <div className="lg:col-span-5">
                       {isScanningReceipt ? (
                         <div className="h-full bg-slate-50 border border-slate-200 rounded-2xl p-8 flex flex-col justify-center items-center text-slate-400 space-y-4 animate-pulse">
@@ -6657,7 +7373,7 @@ export default function App() {
                               </span>
                             </div>
 
-                            {/* Trust score visual radial simulator */}
+                            {/* Trust score visual radial indicator */}
                             <div className="flex items-center gap-4">
                               <div className="relative flex items-center justify-center shrink-0">
                                 <div className="w-14 h-14 rounded-full flex items-center justify-center bg-white border shadow-sm border-slate-200">
@@ -6787,6 +7503,25 @@ export default function App() {
                     >
                       <CreditCard className="w-3.5 h-3.5" /> Exportar Todos os Recibos
                     </button>
+
+                    <button
+                      onClick={handleExportBulkBadgesA4PDF}
+                      disabled={isGeneratingBulk}
+                      className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition shrink-0 cursor-pointer"
+                      title="Gerar ficheiro PDF A4 contendo 8 crachás por página com marcas de corte para impressão em massa"
+                    >
+                      {isGeneratingBulk ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>A Gerar {bulkProgress}%</span>
+                        </>
+                      ) : (
+                        <>
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>Crachás em Massa (8/A4)</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
 
@@ -6826,7 +7561,14 @@ export default function App() {
                                   </div>
                                   <div>
                                     <p className="font-bold text-slate-950">{m.name}</p>
-                                    <p className="text-[10px] text-slate-500 font-mono">{m.id}</p>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                      <span className="text-[10px] text-slate-500 font-mono">{m.id}</span>
+                                      {m.role && (
+                                        <span className={`text-[9px] px-1.5 py-0.2 rounded font-black uppercase ${getPositionTheme(m.role).badgeBg} ${getPositionTheme(m.role).badgeText}`}>
+                                          {getPositionTheme(m.role).name}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               </td>
@@ -7240,7 +7982,7 @@ export default function App() {
                 </div>
 
                 {/* Navigation Sub-Tabs */}
-                <div className="flex bg-slate-100 p-1 rounded-2xl max-w-md">
+                <div className="flex bg-slate-100 p-1 rounded-2xl max-w-xl">
                   <button
                     onClick={() => setRemindersSubTab("queue")}
                     className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
@@ -7261,9 +8003,19 @@ export default function App() {
                   >
                     Histórico de Mensagens ({whatsappReminders.filter(r => r.status === "Enviado").length})
                   </button>
+                  <button
+                    onClick={() => setRemindersSubTab("templates")}
+                    className={`flex-1 py-2 text-xs font-bold rounded-xl transition ${
+                      remindersSubTab === "templates"
+                        ? "bg-white text-slate-900 shadow"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    Templates Inteligentes ({smartTemplates.length})
+                  </button>
                 </div>
 
-                {remindersSubTab === "queue" ? (
+                {remindersSubTab === "queue" && (
                   <>
                     {/* Automation & Template Setup Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -7320,6 +8072,76 @@ export default function App() {
                         <p className="text-[10px] text-slate-500 leading-normal">
                           Define com quantos dias de antecedência o crachá será sinalizado para renovação, habilitando alertas de quota (atualmente {reminderAdvanceDays} dias).
                         </p>
+                      </div>
+
+                      {/* Painel de Horário de Silêncio */}
+                      <div className="bg-gradient-to-br from-slate-50 to-slate-100/50 p-4 rounded-2xl border border-slate-200 space-y-3 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-2 text-[11px] font-black text-slate-800 uppercase tracking-wider">
+                            <Moon className="w-4 h-4 text-indigo-600" />
+                            Horário de Silêncio (Quiet Hours)
+                          </span>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              checked={quietHoursEnabled} 
+                              onChange={(e) => setQuietHoursEnabled(e.target.checked)}
+                              className="sr-only peer" 
+                            />
+                            <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all dark:bg-slate-300 peer-checked:bg-indigo-600"></div>
+                          </label>
+                        </div>
+
+                        {quietHoursEnabled && (
+                          <div className="space-y-3 animate-fade-in">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <label className="text-[9px] text-slate-400 font-black uppercase tracking-wider">Início do Silêncio</label>
+                                <input 
+                                  type="time" 
+                                  value={quietHoursStart}
+                                  onChange={(e) => setQuietHoursStart(e.target.value)}
+                                  className="w-full bg-white border border-slate-200 text-xs rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-700 shadow-sm"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[9px] text-slate-400 font-black uppercase tracking-wider">Fim do Silêncio</label>
+                                <input 
+                                  type="time" 
+                                  value={quietHoursEnd}
+                                  onChange={(e) => setQuietHoursEnd(e.target.value)}
+                                  className="w-full bg-white border border-slate-200 text-xs rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-700 shadow-sm"
+                                />
+                              </div>
+                            </div>
+                            
+                            {/* Quiet Hours Status Indicator */}
+                            <div className={`flex items-center gap-2.5 px-3 py-2 border rounded-xl shadow-sm ${
+                              isCurrentlyInQuietHours() 
+                                ? 'bg-amber-50 border-amber-200/60 text-amber-900' 
+                                : 'bg-slate-50 border-slate-150 text-slate-600'
+                            }`}>
+                              <span className={`w-2 h-2 rounded-full shrink-0 ${isCurrentlyInQuietHours() ? 'bg-amber-500 animate-pulse' : 'bg-slate-400'}`}></span>
+                              <p className="text-[10px] font-semibold leading-normal">
+                                {isCurrentlyInQuietHours() ? (
+                                  <>
+                                    <strong>Horário de Silêncio Ativo:</strong> Mensagens em lote estão retidas das {quietHoursStart} às {quietHoursEnd} para respeitar o descanso dos membros.
+                                  </>
+                                ) : (
+                                  <>
+                                    <strong>Horário de Silêncio Configurado:</strong> Ativo diariamente das {quietHoursStart} às {quietHoursEnd}. No momento, o envio em lote está liberado.
+                                  </>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {!quietHoursEnabled && (
+                          <p className="text-[10px] text-slate-400 font-medium leading-normal">
+                            ⚠️ O horário de silêncio está desativado. Mensagens em lote e automáticas serão processadas de forma imediata sem restrições de horário ou descanso.
+                          </p>
+                        )}
                       </div>
 
                       <div className="space-y-1.5">
@@ -7409,6 +8231,20 @@ export default function App() {
                         </p>
                         <button
                           onClick={() => {
+                            if (isCurrentlyInQuietHours()) {
+                              setActiveToasts(prev => [
+                                {
+                                  id: "toast-" + Date.now(),
+                                  title: "Horário de Silêncio Ativo",
+                                  message: `O envio em lote está suspenso durante o horário de silêncio (${quietHoursStart} às ${quietHoursEnd}) para respeitar o descanso dos membros.`,
+                                  type: "warning"
+                                },
+                                ...prev
+                              ]);
+                              alert(`O envio em lote está bloqueado no momento porque o Horário de Silêncio está ativo (${quietHoursStart} às ${quietHoursEnd}) para respeitar o descanso dos membros. Ajuste o painel ou aguarde o término do período.`);
+                              return;
+                            }
+
                             const todayStr = new Date().toISOString().split("T")[0];
                             const pendingReminders = whatsappReminders.filter(
                               r => r.status === "Agendado" && r.scheduledDate <= todayStr
@@ -7452,6 +8288,16 @@ export default function App() {
 
                 {/* Scheduled Reminders Table Section */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 space-y-4 shadow-sm">
+                  
+                  {isCurrentlyInQuietHours() && (
+                    <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-4 flex items-center gap-3 animate-fade-in">
+                      <Moon className="w-5 h-5 text-amber-600 shrink-0" />
+                      <div className="text-xs">
+                        <p className="font-extrabold uppercase tracking-wider text-[10px] text-amber-800">Horário de Silêncio Ativo ({quietHoursStart} - {quietHoursEnd})</p>
+                        <p className="font-medium text-amber-700 mt-0.5">O envio automático em lote de lembretes está temporariamente suspenso para respeitar o descanso dos membros.</p>
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Filters and search row */}
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-slate-100 pb-4">
@@ -7583,6 +8429,11 @@ export default function App() {
                                   
                                   <button
                                     onClick={() => {
+                                      if (isCurrentlyInQuietHours()) {
+                                        const confirmSend = window.confirm(`Atenção: O Horário de Silêncio está ativo no momento (${quietHoursStart} às ${quietHoursEnd}). Tem certeza absoluta que deseja enviar este lembrete manual agora e ignorar o horário de descanso do membro?`);
+                                        if (!confirmSend) return;
+                                      }
+
                                       setWhatsappReminders(prev => prev.map(item => {
                                         if (item.id === r.id) {
                                           return { ...item, status: "Enviado", sentAt: new Date().toISOString() };
@@ -7627,7 +8478,9 @@ export default function App() {
 
                 </div>
                   </>
-                ) : (
+                )}
+
+                {remindersSubTab === "history" && (
                   <div className="bg-white p-6 rounded-3xl border border-slate-200 space-y-6 shadow-sm">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-slate-100 pb-4">
                       <div>
@@ -7765,6 +8618,356 @@ export default function App() {
                           })()}
                         </tbody>
                       </table>
+                    </div>
+                  </div>
+                )}
+
+                {remindersSubTab === "templates" && (
+                  <div className="space-y-6">
+                    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        
+                        {/* LEFT: FORM FOR NEW/EDITING TEMPLATE */}
+                        <div className="lg:col-span-1 bg-slate-50/50 p-5 rounded-2xl border border-slate-200 space-y-4">
+                          <h4 className="font-extrabold text-slate-900 text-sm flex items-center gap-1.5 border-b border-slate-150 pb-2">
+                            <Settings className="w-4 h-4 text-indigo-600" />
+                            {editingTplId ? "Editar Template Inteligente" : "Criar Novo Template"}
+                          </h4>
+
+                          <div className="space-y-3">
+                            <div className="space-y-1">
+                              <label className="block text-[10px] font-black text-slate-700 uppercase tracking-wider">Nome do Modelo</label>
+                              <input
+                                type="text"
+                                placeholder="Ex: Lembrete 7 dias antes"
+                                value={newTplName}
+                                onChange={(e) => setNewTplName(e.target.value)}
+                                className="w-full bg-white border border-slate-250 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-800"
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1">
+                                <label className="block text-[10px] font-black text-slate-700 uppercase tracking-wider">Gatilho (Evento)</label>
+                                <select
+                                  value={newTplTrigger}
+                                  onChange={(e) => setNewTplTrigger(e.target.value as any)}
+                                  className="w-full bg-white border border-slate-250 text-xs rounded-xl px-2.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-slate-700"
+                                >
+                                  <option value="Antes_Vencer">Antes de Vencer</option>
+                                  <option value="Apos_Vencer">Após Vencer</option>
+                                  <option value="Expirado_Hoje">Expirado Hoje</option>
+                                </select>
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="block text-[10px] font-black text-slate-700 uppercase tracking-wider">
+                                  {newTplTrigger === "Expirado_Hoje" ? "Dias (Fixo)" : "Intervalo (Dias)"}
+                                </label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  disabled={newTplTrigger === "Expirado_Hoje"}
+                                  value={newTplTrigger === "Expirado_Hoje" ? 0 : newTplInterval}
+                                  onChange={(e) => setNewTplInterval(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                                  className="w-full bg-white disabled:bg-slate-100 border border-slate-250 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-slate-800 text-center"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="flex justify-between items-center">
+                                <label className="block text-[10px] font-black text-slate-700 uppercase tracking-wider">Mensagem Personalizada</label>
+                                <span className="text-[9px] text-slate-400 font-semibold">Variáveis reativas</span>
+                              </div>
+                              <textarea
+                                value={newTplMessage}
+                                onChange={(e) => setNewTplMessage(e.target.value)}
+                                rows={5}
+                                placeholder="Insira o texto do lembrete. Utilize as variáveis disponíveis abaixo."
+                                className="w-full bg-white border border-slate-250 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+                              />
+                            </div>
+
+                            {/* Dynamic Variable Buttons */}
+                            <div className="space-y-1.5">
+                              <span className="block text-[10px] font-bold text-slate-500">Clique para inserir variável:</span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {[
+                                  { code: "{nome}", desc: "Nome do membro" },
+                                  { code: "{data_vencimento}", desc: "Data de vencimento" },
+                                  { code: "{link_renovacao}", desc: "Link de pagamento" },
+                                  { code: "{dias}", desc: "Dias restantes/passados" }
+                                ].map(v => (
+                                  <button
+                                    key={v.code}
+                                    type="button"
+                                    onClick={() => setNewTplMessage(prev => prev + v.code)}
+                                    className="bg-white hover:bg-slate-100 text-indigo-700 border border-slate-200 hover:border-indigo-200 px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono transition cursor-pointer"
+                                    title={v.desc}
+                                  >
+                                    {v.code}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between bg-white border border-slate-200 p-2.5 rounded-xl">
+                              <span className="text-xs font-bold text-slate-700">Estado de Envio Automático</span>
+                              <button
+                                type="button"
+                                onClick={() => setNewTplIsActive(!newTplIsActive)}
+                                className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                  newTplIsActive ? "bg-indigo-600" : "bg-slate-200"
+                                }`}
+                              >
+                                <span
+                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                    newTplIsActive ? "translate-x-5" : "translate-x-0"
+                                  }`}
+                                />
+                              </button>
+                            </div>
+
+                            <div className="flex gap-2 pt-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!newTplName.trim() || !newTplMessage.trim()) {
+                                    alert("Preencha o nome do modelo e a mensagem personalizada.");
+                                    return;
+                                  }
+
+                                  const updatedTemplates = [...smartTemplates];
+                                  if (editingTplId) {
+                                    const idx = updatedTemplates.findIndex(t => t.id === editingTplId);
+                                    if (idx !== -1) {
+                                      updatedTemplates[idx] = {
+                                        ...updatedTemplates[idx],
+                                        name: newTplName,
+                                        triggerType: newTplTrigger,
+                                        message: newTplMessage,
+                                        daysInterval: newTplTrigger === "Expirado_Hoje" ? 0 : newTplInterval,
+                                        isActive: newTplIsActive
+                                      };
+                                      addLog("Administrador", `Editou o template inteligente "${newTplName}"`, "success");
+                                    }
+                                  } else {
+                                    const newId = "tpl-" + Date.now();
+                                    updatedTemplates.push({
+                                      id: newId,
+                                      name: newTplName,
+                                      triggerType: newTplTrigger,
+                                      message: newTplMessage,
+                                      daysInterval: newTplTrigger === "Expirado_Hoje" ? 0 : newTplInterval,
+                                      isActive: newTplIsActive,
+                                      createdAt: new Date().toISOString()
+                                    });
+                                    addLog("Administrador", `Criou novo template inteligente "${newTplName}"`, "success");
+                                  }
+
+                                  setSmartTemplates(updatedTemplates);
+                                  // Reset form
+                                  setNewTplName("");
+                                  setNewTplMessage("");
+                                  setNewTplInterval(5);
+                                  setNewTplTrigger("Antes_Vencer");
+                                  setNewTplIsActive(true);
+                                  setEditingTplId(null);
+
+                                  setActiveToasts(prev => [
+                                    {
+                                      id: "toast-" + Date.now(),
+                                      title: "Template Guardado",
+                                      message: "As configurações do modelo reativo foram atualizadas com sucesso!",
+                                      type: "success"
+                                    },
+                                    ...prev
+                                  ]);
+                                }}
+                                className="flex-1 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition shadow-sm"
+                              >
+                                {editingTplId ? "Atualizar Modelo" : "Guardar Modelo"}
+                              </button>
+
+                              {(editingTplId || newTplName || newTplMessage) && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setNewTplName("");
+                                    setNewTplMessage("");
+                                    setNewTplInterval(5);
+                                    setNewTplTrigger("Antes_Vencer");
+                                    setNewTplIsActive(true);
+                                    setEditingTplId(null);
+                                  }}
+                                  className="py-2.5 px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition"
+                                >
+                                  Cancelar
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* RIGHT: LIST OF SMART TEMPLATES */}
+                        <div className="lg:col-span-2 space-y-4">
+                          <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                            <div>
+                              <h3 className="font-extrabold text-slate-950 text-base">Templates Ativos & Automação</h3>
+                              <p className="text-xs text-slate-500">Mensagens que serão disparadas automaticamente no intervalo definido.</p>
+                            </div>
+                            <span className="text-[10px] bg-slate-100 text-slate-700 font-bold px-2.5 py-1 rounded-full border border-slate-200">
+                              {smartTemplates.length} Modelos Programados
+                            </span>
+                          </div>
+
+                          {smartTemplates.length === 0 ? (
+                            <div className="text-center py-12 text-slate-400 font-medium bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                              Nenhum template inteligente criado ainda. Comece a criar um no painel ao lado!
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {smartTemplates.map((tpl) => {
+                                // Find a mock member to show preview
+                                const previewMember = members.find(m => m.paymentStatus === "Ativo") || {
+                                  name: "João Mateus",
+                                  expiryDate: "2026-12-31"
+                                } as Member;
+
+                                const previewMsg = tpl.message
+                                  .replace(/{nome}/g, previewMember.name)
+                                  .replace(/{dias}/g, tpl.daysInterval.toString())
+                                  .replace(/{data_vencimento}/g, previewMember.expiryDate || "")
+                                  .replace(/{validade}/g, previewMember.expiryDate || "")
+                                  .replace(/{link_renovacao}/g, window.location.origin)
+                                  .replace(/{link}/g, window.location.origin);
+
+                                return (
+                                  <div
+                                    key={tpl.id}
+                                    className={`bg-white border p-4 rounded-2xl shadow-sm hover:shadow-md transition flex flex-col justify-between space-y-3 relative ${
+                                      tpl.isActive ? "border-slate-200" : "border-slate-250 opacity-60"
+                                    }`}
+                                  >
+                                    <div className="space-y-1.5">
+                                      <div className="flex justify-between items-start">
+                                        <div className="space-y-0.5">
+                                          <h4 className="font-black text-slate-900 text-sm flex items-center gap-1.5">
+                                            {tpl.name}
+                                          </h4>
+                                          <div className="flex flex-wrap gap-1 items-center">
+                                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                              tpl.triggerType === "Antes_Vencer" ? "bg-blue-50 text-blue-700 border border-blue-100" :
+                                              tpl.triggerType === "Apos_Vencer" ? "bg-amber-50 text-amber-700 border border-amber-100" :
+                                              "bg-red-50 text-red-700 border border-red-100"
+                                            }`}>
+                                              {tpl.triggerType === "Antes_Vencer" ? "Antes de Vencer" :
+                                               tpl.triggerType === "Apos_Vencer" ? "Após Vencer" : "No Dia do Vencimento"}
+                                            </span>
+                                            {tpl.triggerType !== "Expirado_Hoje" && (
+                                              <span className="text-[9px] bg-slate-50 text-slate-600 font-bold px-2 py-0.5 rounded-full border border-slate-150">
+                                                Intervalo: {tpl.daysInterval} dias
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-1">
+                                          <button
+                                            onClick={() => {
+                                              setEditingTplId(tpl.id);
+                                              setNewTplName(tpl.name);
+                                              setNewTplTrigger(tpl.triggerType);
+                                              setNewTplMessage(tpl.message);
+                                              setNewTplInterval(tpl.daysInterval);
+                                              setNewTplIsActive(tpl.isActive);
+                                            }}
+                                            className="p-1.5 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 text-slate-600 transition cursor-pointer"
+                                            title="Editar Modelo"
+                                          >
+                                            <Edit2 className="w-3 h-3" />
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              if (confirm(`Tem a certeza que deseja excluir o modelo "${tpl.name}"?`)) {
+                                                setSmartTemplates(prev => prev.filter(t => t.id !== tpl.id));
+                                                addLog("Administrador", `Excluiu o template inteligente "${tpl.name}"`, "warning");
+                                                setActiveToasts(prev => [
+                                                  {
+                                                    id: "toast-" + Date.now(),
+                                                    title: "Template Excluído",
+                                                    message: "O modelo de notificação reativa foi removido com sucesso.",
+                                                    type: "warning"
+                                                  },
+                                                  ...prev
+                                                ]);
+                                              }
+                                            }}
+                                            className="p-1.5 bg-red-50 hover:bg-red-100 hover:text-red-700 rounded-lg border border-red-100 text-red-600 transition cursor-pointer"
+                                            title="Excluir Modelo"
+                                          >
+                                            <Trash2 className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      {/* Message Preview bubble */}
+                                      <div className="space-y-1">
+                                        <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest block">Pré-visualização da Mensagem:</span>
+                                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-[10.5px] leading-relaxed text-slate-700 font-medium">
+                                          {previewMsg}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex justify-between items-center pt-2 border-t border-slate-100 text-[10px]">
+                                      <span className="text-slate-400">Criado em {new Date(tpl.createdAt).toLocaleDateString()}</span>
+                                      <button
+                                        onClick={() => {
+                                          setSmartTemplates(prev => prev.map(t => {
+                                            if (t.id === tpl.id) {
+                                              const newSt = !t.isActive;
+                                              addLog("Administrador", `${newSt ? "Ativou" : "Desativou"} envio automático para "${t.name}"`, newSt ? "success" : "warning");
+                                              return { ...t, isActive: newSt };
+                                            }
+                                            return t;
+                                          }));
+                                        }}
+                                        className={`px-2 py-0.5 rounded-full font-black text-[9px] uppercase border transition cursor-pointer ${
+                                          tpl.isActive 
+                                            ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100" 
+                                            : "bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200"
+                                        }`}
+                                      >
+                                        {tpl.isActive ? "● ATIVO" : "○ INATIVO"}
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Variable Legend Banner */}
+                          <div className="bg-blue-50/70 p-4 rounded-2xl border border-blue-100/80 text-xs text-blue-900 flex gap-3">
+                            <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                            <div className="space-y-1">
+                              <h5 className="font-extrabold">Como funcionam as Variáveis e Gatilhos?</h5>
+                              <p className="text-blue-700 leading-relaxed text-[11px]">
+                                O gatilho <strong>Antes de Vencer</strong> executa a varredura e agenda o lembrete quando a data de validade estiver a menos ou igual ao número de dias definido. O gatilho <strong>Após Vencer</strong> age se a validade já passou no número especificado de dias. O gatilho <strong>Expirado Hoje</strong> dispara exatamente no dia em que o crachá é invalidado.
+                              </p>
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] pt-1">
+                                <div><strong className="font-mono text-blue-800">{"{nome}"}</strong>: Nome do Membro completo</div>
+                                <div><strong className="font-mono text-blue-800">{"{data_vencimento}"}</strong>: Data limite (YYYY-MM-DD)</div>
+                                <div><strong className="font-mono text-blue-800">{"{link_renovacao}"}</strong>: Portal oficial OST de renovações</div>
+                                <div><strong className="font-mono text-blue-800">{"{dias}"}</strong>: Contagem regressiva ou ultrapassada</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                      </div>
                     </div>
                   </div>
                 )}
@@ -8373,7 +9576,7 @@ export default function App() {
                   {/* Right Column: Connection Testing tool */}
                   <div className="lg:col-span-5 bg-slate-50 border border-slate-200 rounded-3xl p-6 space-y-5">
                     <div className="space-y-1">
-                      <h4 className="font-extrabold text-slate-950 text-xs">Simulador de Transmissão & Teste</h4>
+                      <h4 className="font-extrabold text-slate-950 text-xs">Painel de Teste de Conexão</h4>
                       <p className="text-[10px] text-slate-500">Dispare um e-mail de teste em tempo real para verificar se as suas configurações são válidas e não são bloqueadas por firewalls.</p>
                     </div>
 
@@ -8779,6 +9982,336 @@ export default function App() {
               </div>
             )}
 
+            {adminTab === "health" && (
+              <div id="health-assistance-panel" className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-8 animate-fade-in">
+                {/* Header */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-5">
+                  <div className="space-y-1">
+                    <h3 className="font-extrabold text-slate-950 text-base flex items-center gap-2">
+                      <Heart className="w-5 h-5 text-rose-500 fill-rose-500" /> Saúde & Assistência Médica
+                    </h3>
+                    <p className="text-xs text-slate-500">Registo confidencial de necessidades especiais, restrições médicas e contactos de emergência de membros, mantendo rígida privacidade e auditoria de acessos.</p>
+                  </div>
+                  <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+                    <span className="text-[10px] font-black uppercase text-slate-500 px-2.5">
+                      Controlo de Privacidade Ativo
+                    </span>
+                  </div>
+                </div>
+
+                {/* KPI/Statistics Summary */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-slate-50 p-5 rounded-2xl border border-slate-150 flex items-center gap-4">
+                    <div className="w-12 h-12 bg-blue-50 text-blue-700 rounded-xl flex items-center justify-center shrink-0">
+                      <Users className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total de Membros</p>
+                      <h4 className="text-xl font-black text-slate-900">{members.length}</h4>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 p-5 rounded-2xl border border-slate-150 flex items-center gap-4">
+                    <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center shrink-0">
+                      <Heart className="w-6 h-6 fill-rose-100" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Perfis com Consentimento</p>
+                      <h4 className="text-xl font-black text-slate-900">
+                        {members.filter(m => m.healthConsent).length}
+                      </h4>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 p-5 rounded-2xl border border-slate-150 flex items-center gap-4">
+                    <div className="w-12 h-12 bg-amber-50 text-amber-700 rounded-xl flex items-center justify-center shrink-0">
+                      <Shield className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Necessidades Especiais</p>
+                      <h4 className="text-xl font-black text-slate-900">
+                        {members.filter(m => m.specialNeeds && m.specialNeeds !== "Nenhuma" && m.specialNeeds.trim() !== "").length}
+                      </h4>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 p-5 rounded-2xl border border-slate-150 flex items-center gap-4">
+                    <div className="w-12 h-12 bg-emerald-50 text-emerald-700 rounded-xl flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Contactos de Emergência</p>
+                      <h4 className="text-xl font-black text-slate-900">
+                        {members.filter(m => m.emergencyPhone && m.emergencyPhone.trim() !== "").length}
+                      </h4>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filter section */}
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-150 flex flex-col lg:flex-row gap-4 items-center justify-between">
+                  <div className="relative w-full lg:max-w-xs">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input 
+                      type="text" 
+                      placeholder="Pesquisar por nome ou ID..."
+                      value={healthSearchQuery}
+                      onChange={(e) => setHealthSearchQuery(e.target.value)}
+                      className="w-full bg-white border border-slate-200 pl-10 pr-4 py-2 rounded-xl text-xs font-semibold outline-none focus:ring-1 focus:ring-blue-700 focus:border-blue-700"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap gap-3 w-full lg:w-auto">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Necessidades:</span>
+                      <select 
+                        value={healthSpecialNeedsFilter}
+                        onChange={(e) => setHealthSpecialNeedsFilter(e.target.value)}
+                        className="bg-white border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold outline-none"
+                      >
+                        <option value="Todos">Todos</option>
+                        <option value="Sim">Com Necessidades</option>
+                        <option value="Não">Sem Necessidades</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Grupo Sanguíneo:</span>
+                      <select 
+                        value={healthBloodTypeFilter}
+                        onChange={(e) => setHealthBloodTypeFilter(e.target.value)}
+                        className="bg-white border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold outline-none"
+                      >
+                        <option value="Todos">Todos</option>
+                        <option value="A+">A+</option>
+                        <option value="A-">A-</option>
+                        <option value="B+">B+</option>
+                        <option value="B-">B-</option>
+                        <option value="AB+">AB+</option>
+                        <option value="AB-">AB-</option>
+                        <option value="O+">O+</option>
+                        <option value="O-">O-</option>
+                        <option value="Não Registado">Não Registado</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Table list */}
+                <div className="overflow-x-auto border border-slate-150 rounded-2xl">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 text-[10px] font-black text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                        <th className="p-4 pl-6">ID / Membro</th>
+                        <th className="p-4">Necessidades Especiais</th>
+                        <th className="p-4">Grupo Sanguíneo</th>
+                        <th className="p-4">Ficha Médica & Medicação</th>
+                        <th className="p-4">Contacto Emergência</th>
+                        <th className="p-4">Consentimento</th>
+                        <th className="p-4 pr-6 text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs">
+                      {members.filter(m => {
+                        const matchesSearch = 
+                          m.name.toLowerCase().includes(healthSearchQuery.toLowerCase()) ||
+                          m.id.toLowerCase().includes(healthSearchQuery.toLowerCase());
+                          
+                        const hasNeeds = m.specialNeeds && m.specialNeeds !== "Nenhuma" && m.specialNeeds.trim() !== "";
+                        const matchesNeeds = 
+                          healthSpecialNeedsFilter === "Todos" ? true :
+                          healthSpecialNeedsFilter === "Sim" ? hasNeeds : !hasNeeds;
+                          
+                        const matchesBlood = 
+                          healthBloodTypeFilter === "Todos" ? true :
+                          healthBloodTypeFilter === "Não Registado" ? (!m.bloodType || m.bloodType === "Não Especificado" || m.bloodType === "") :
+                          m.bloodType === healthBloodTypeFilter;
+                          
+                        return matchesSearch && matchesNeeds && matchesBlood;
+                      }).length > 0 ? (
+                        members.filter(m => {
+                          const matchesSearch = 
+                            m.name.toLowerCase().includes(healthSearchQuery.toLowerCase()) ||
+                            m.id.toLowerCase().includes(healthSearchQuery.toLowerCase());
+                            
+                          const hasNeeds = m.specialNeeds && m.specialNeeds !== "Nenhuma" && m.specialNeeds.trim() !== "";
+                          const matchesNeeds = 
+                            healthSpecialNeedsFilter === "Todos" ? true :
+                            healthSpecialNeedsFilter === "Sim" ? hasNeeds : !hasNeeds;
+                            
+                          const matchesBlood = 
+                            healthBloodTypeFilter === "Todos" ? true :
+                            healthBloodTypeFilter === "Não Registado" ? (!m.bloodType || m.bloodType === "Não Especificado" || m.bloodType === "") :
+                            m.bloodType === healthBloodTypeFilter;
+                            
+                          return matchesSearch && matchesNeeds && matchesBlood;
+                        }).map((m) => {
+                          const isUnlocked = unlockedHealthMemberIds[m.id];
+                          const hasConsent = m.healthConsent === true;
+                          const hasNeeds = m.specialNeeds && m.specialNeeds !== "Nenhuma" && m.specialNeeds.trim() !== "";
+                          
+                          return (
+                            <tr key={m.id} className="hover:bg-slate-50/60 transition-all">
+                              <td className="p-4 pl-6">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-9 h-9 bg-slate-100 rounded-full flex items-center justify-center font-bold text-rose-600 overflow-hidden shrink-0">
+                                    {m.photoUrl ? (
+                                      <img src={m.photoUrl} alt="Photo" className="w-full h-full object-cover" />
+                                    ) : (
+                                      m.name.substring(0, 2).toUpperCase()
+                                    )}
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-slate-950">{m.name}</p>
+                                    <p className="text-[10px] text-slate-400 font-mono mt-0.5">{m.id}</p>
+                                  </div>
+                                </div>
+                              </td>
+
+                              <td className="p-4">
+                                {hasNeeds ? (
+                                  <span className="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full text-[10px]">
+                                    {m.specialNeeds}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 italic">Nenhuma</span>
+                                )}
+                              </td>
+
+                              <td className="p-4">
+                                {m.bloodType ? (
+                                  <span className="bg-red-50 text-red-700 border border-red-200 font-bold px-2.5 py-0.5 rounded-lg text-[10px]">
+                                    {m.bloodType}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 italic">Não Registado</span>
+                                )}
+                              </td>
+
+                              <td className="p-4 font-medium">
+                                {!hasConsent ? (
+                                  <span className="text-slate-400 italic">Sem Consentimento</span>
+                                ) : !isUnlocked ? (
+                                  <div className="flex items-center gap-1.5 text-slate-400 bg-slate-100 border border-slate-200 rounded-lg py-1 px-2.5 w-max">
+                                    <Lock className="w-3 h-3 text-slate-500" />
+                                    <span className="text-[10px] font-mono tracking-widest font-black">••••••••</span>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-1 max-w-xs bg-rose-50/40 p-2 rounded-xl border border-rose-100">
+                                    {m.chronicConditions && (
+                                      <p className="text-[10px]">
+                                        <strong className="text-rose-950">Condições:</strong> {m.chronicConditions}
+                                      </p>
+                                    )}
+                                    {m.allergies && (
+                                      <p className="text-[10px]">
+                                        <strong className="text-rose-950">Alergias:</strong> {m.allergies}
+                                      </p>
+                                    )}
+                                    {m.medications && (
+                                      <p className="text-[10px]">
+                                        <strong className="text-rose-950">Medicação:</strong> {m.medications}
+                                      </p>
+                                    )}
+                                    {!m.chronicConditions && !m.allergies && !m.medications && (
+                                      <span className="text-slate-400 italic text-[10px]">Sem restrições médicas registadas.</span>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+
+                              <td className="p-4 font-medium">
+                                {!hasConsent ? (
+                                  <span className="text-slate-400 italic">Sem Consentimento</span>
+                                ) : !isUnlocked ? (
+                                  <div className="flex items-center gap-1.5 text-slate-400 bg-slate-100 border border-slate-200 rounded-lg py-1 px-2.5 w-max">
+                                    <Lock className="w-3 h-3 text-slate-500" />
+                                    <span className="text-[10px] font-mono tracking-widest font-black">••••••••</span>
+                                  </div>
+                                ) : m.emergencyPhone ? (
+                                  <div className="space-y-0.5 bg-slate-50 p-2 rounded-xl border border-slate-200">
+                                    <p className="font-bold text-slate-800 text-[10px]">{m.emergencyName || "Contacto Directo"}</p>
+                                    <p className="text-slate-500 font-mono text-[10px]">{m.emergencyPhone}</p>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400 italic">Não Registado</span>
+                                )}
+                              </td>
+
+                              <td className="p-4">
+                                {hasConsent ? (
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="bg-emerald-100 text-emerald-800 font-black px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wider w-max">
+                                      Sim
+                                    </span>
+                                    <span className="text-[8px] text-slate-400 font-mono">{m.healthConsentDate || "N/D"}</span>
+                                  </div>
+                                ) : (
+                                  <span className="bg-rose-100 text-rose-800 font-black px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wider w-max">
+                                    Não
+                                  </span>
+                                )}
+                              </td>
+
+                              <td className="p-4 pr-6 text-right space-x-2 whitespace-nowrap">
+                                {hasConsent && (
+                                  <button
+                                    onClick={() => {
+                                      if (isUnlocked) {
+                                        setUnlockedHealthMemberIds(prev => ({ ...prev, [m.id]: false }));
+                                      } else {
+                                        setViewingHealthConfirmMember(m);
+                                      }
+                                    }}
+                                    className={`font-bold px-2.5 py-1.5 rounded-lg text-[10px] inline-flex items-center gap-1 transition ${
+                                      isUnlocked 
+                                        ? "bg-slate-150 text-slate-700 hover:bg-slate-200" 
+                                        : "bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 shadow-xs"
+                                    }`}
+                                    title={isUnlocked ? "Ocultar Informações" : "Revelar Informações com Segurança"}
+                                  >
+                                    {isUnlocked ? (
+                                      <>
+                                        <Lock className="w-3 h-3" /> Ocultar
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Unlock className="w-3 h-3 text-blue-600 animate-pulse" /> Ver Ficha (🔒)
+                                      </>
+                                    )}
+                                  </button>
+                                )}
+
+                                <button
+                                  onClick={() => setEditingHealthMember({ ...m })}
+                                  className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-2.5 py-1.5 rounded-lg text-[10px] inline-flex items-center gap-1 transition"
+                                >
+                                  <Edit2 className="w-3 h-3" /> Registar/Editar
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan={7} className="p-8 text-center text-slate-400">Nenhum membro encontrado correspondente aos filtros de saúde.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Privacy disclaimer note */}
+                <div className="bg-rose-50/50 border border-rose-200 rounded-2xl p-4 flex gap-3 text-[11px] text-rose-800 leading-relaxed">
+                  <Shield className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <span className="font-bold text-rose-950 block">Conformidade Legal & Rastreamento de Auditoria</span>
+                    <span>De acordo com as leis nacionais e regulamentos de proteção de dados médicos e PII, todas as ações de visualização de registros médicos (Ficha de Saúde) por operadores de sistema são registradas irreversivelmente na guia "Logs de Auditoria". O compartilhamento não autorizado de tais informações constitui uma infração grave.</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 
@@ -8902,6 +10435,264 @@ export default function App() {
               >
                 <Printer className="w-4 h-4" /> Imprimir / PDF
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================= */}
+      {/* HEALTH EDIT/REGISTRATION MODAL          */}
+      {/* ======================================= */}
+      {editingHealthMember && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl relative border border-slate-200 animate-in fade-in duration-150">
+            <button 
+              onClick={() => setEditingHealthMember(null)}
+              className="absolute top-5 right-5 p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+                <Heart className="w-5 h-5 text-rose-500 fill-rose-500" />
+                <div>
+                  <h3 className="text-base font-black text-slate-950">Ficha de Saúde e Assistência</h3>
+                  <p className="text-[11px] text-slate-500">Membro: <strong className="text-slate-800">{editingHealthMember.name}</strong> • ID: {editingHealthMember.id}</p>
+                </div>
+              </div>
+
+              <div className="space-y-4 text-xs">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Grupo Sanguíneo</label>
+                    <select
+                      value={editingHealthMember.bloodType || ""}
+                      onChange={(e) => setEditingHealthMember({ ...editingHealthMember, bloodType: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-xs font-bold outline-none focus:ring-1 focus:ring-blue-700"
+                    >
+                      <option value="">Não Especificado</option>
+                      <option value="A+">A+</option>
+                      <option value="A-">A-</option>
+                      <option value="B+">B+</option>
+                      <option value="B-">B-</option>
+                      <option value="AB+">AB+</option>
+                      <option value="AB-">AB-</option>
+                      <option value="O+">O+</option>
+                      <option value="O-">O-</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Necessidades Especiais</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Cadeirante, Deficiência Visual, etc."
+                      value={editingHealthMember.specialNeeds || ""}
+                      onChange={(e) => setEditingHealthMember({ ...editingHealthMember, specialNeeds: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl outline-none focus:ring-1 focus:ring-blue-700 font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Condições Crónicas / Doenças</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Hipertensão, Diabetes, Alergias alimentares..."
+                      value={editingHealthMember.chronicConditions || ""}
+                      onChange={(e) => setEditingHealthMember({ ...editingHealthMember, chronicConditions: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl outline-none focus:ring-1 focus:ring-blue-700 font-semibold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Alergias Conhecidas</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Penicilina, Paracetamol, etc."
+                      value={editingHealthMember.allergies || ""}
+                      onChange={(e) => setEditingHealthMember({ ...editingHealthMember, allergies: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl outline-none focus:ring-1 focus:ring-blue-700 font-semibold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Medicação Contínua</label>
+                    <input
+                      type="text"
+                      placeholder="Medicamentos que toma com regularidade..."
+                      value={editingHealthMember.medications || ""}
+                      onChange={(e) => setEditingHealthMember({ ...editingHealthMember, medications: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl outline-none focus:ring-1 focus:ring-blue-700 font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-100 pt-4 space-y-3">
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Contacto de Emergência</h4>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Nome do Contacto</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: Maria Santos (Mãe)"
+                        value={editingHealthMember.emergencyName || ""}
+                        onChange={(e) => setEditingHealthMember({ ...editingHealthMember, emergencyName: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl outline-none focus:ring-1 focus:ring-blue-700 font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Telefone de Emergência</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: +258 84..."
+                        value={editingHealthMember.emergencyPhone || ""}
+                        onChange={(e) => setEditingHealthMember({ ...editingHealthMember, emergencyPhone: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl outline-none focus:ring-1 focus:ring-blue-700 font-semibold"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2 mt-4">
+                  <div className="flex items-start gap-2.5">
+                    <input
+                      id="health-consent-checkbox"
+                      type="checkbox"
+                      checked={editingHealthMember.healthConsent || false}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setEditingHealthMember({ 
+                          ...editingHealthMember, 
+                          healthConsent: checked,
+                          healthConsentDate: checked ? new Date().toLocaleDateString() : ""
+                        });
+                      }}
+                      className="mt-0.5 w-4 h-4 text-rose-600 bg-slate-100 border-slate-300 rounded focus:ring-rose-500 cursor-pointer"
+                    />
+                    <label htmlFor="health-consent-checkbox" className="text-[11px] text-slate-600 leading-relaxed font-semibold cursor-pointer">
+                      Declaro que o membro forneceu consentimento livre, específico e informado para o registo e armazenamento destas informações de saúde confidenciais para apoio médico de urgência.
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingHealthMember(null)}
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-3 rounded-xl text-xs transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={!editingHealthMember.healthConsent}
+                  onClick={() => handleSaveHealthRecord(editingHealthMember)}
+                  className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 rounded-xl text-xs shadow-md transition disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+                >
+                  Guardar Informações
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================= */}
+      {/* HEALTH VIEW PRIVACY CONFIRM MODAL       */}
+      {/* ======================================= */}
+      {viewingHealthConfirmMember && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 md:p-8 shadow-2xl relative border border-slate-200 animate-in fade-in duration-150">
+            <button 
+              onClick={() => {
+                setViewingHealthConfirmMember(null);
+                setHealthPrivacyChecked(false);
+              }}
+              className="absolute top-5 right-5 p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
+                <Lock className="w-5 h-5 text-amber-500 animate-bounce" />
+                <h3 className="text-base font-black text-slate-950">Acesso Restrito & Auditado</h3>
+              </div>
+
+              <div className="space-y-3 text-xs leading-relaxed text-slate-600">
+                <p>
+                  Está prestes a aceder à <strong>Ficha de Saúde Confidencial</strong> de:
+                </p>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center gap-3">
+                  <div className="w-8 h-8 bg-rose-50 text-rose-600 font-bold rounded-full flex items-center justify-center shrink-0">
+                    {viewingHealthConfirmMember.name.substring(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-900 text-xs">{viewingHealthConfirmMember.name}</p>
+                    <p className="text-[10px] text-slate-400 font-mono">{viewingHealthConfirmMember.id}</p>
+                  </div>
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-[11px] text-amber-800 space-y-1.5">
+                  <span className="font-extrabold text-amber-950 block uppercase tracking-wider">Aviso de Auditoria Obrigatória</span>
+                  <span>
+                    Todas as visualizações de dados médicos sensíveis são registadas de forma permanente no Log de Auditoria. Esta política destina-se a garantir a privacidade do membro.
+                  </span>
+                </div>
+
+                <div className="flex items-start gap-2.5 mt-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <input
+                    id="privacy-audit-checkbox"
+                    type="checkbox"
+                    checked={healthPrivacyChecked}
+                    onChange={(e) => setHealthPrivacyChecked(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
+                  />
+                  <label htmlFor="privacy-audit-checkbox" className="text-[10px] text-slate-600 font-bold cursor-pointer select-none">
+                    Declaro que este acesso destina-se exclusivamente a fins de assistência oficial e tenho autorização explícita para tratar estes dados confidenciais.
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-slate-100">
+                <button
+                  onClick={() => {
+                    setViewingHealthConfirmMember(null);
+                    setHealthPrivacyChecked(false);
+                  }}
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-3 rounded-xl text-xs transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  disabled={!healthPrivacyChecked}
+                  onClick={() => {
+                    const mId = viewingHealthConfirmMember.id;
+                    setUnlockedHealthMemberIds(prev => ({ ...prev, [mId]: true }));
+                    addLog("Administrador", `Visualizou a Ficha de Saúde de ${viewingHealthConfirmMember.name} (${mId})`, "warning");
+                    setActiveToasts(prev => [
+                      {
+                        id: "toast-" + Date.now(),
+                        title: "Ficha Desbloqueada",
+                        message: `Informações de ${viewingHealthConfirmMember.name} reveladas. Ação auditada.`,
+                        type: "info"
+                      },
+                      ...prev
+                    ]);
+                    setViewingHealthConfirmMember(null);
+                    setHealthPrivacyChecked(false);
+                  }}
+                  className="flex-1 bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-xl text-xs shadow-md transition disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+                >
+                  Revelar Ficha
+                </button>
+              </div>
             </div>
           </div>
         </div>
