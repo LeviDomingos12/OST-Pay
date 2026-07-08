@@ -1,5 +1,147 @@
 @import "tailwindcss";
 
+@variant dark (&:where(.dark, .dark *));
+
+/* ======================================================== */
+/* DETAILED HIGH-QUALITY DARK MODE COHESIVE STYLING        */
+/* ======================================================== */
+
+.dark {
+  background-color: #090d16 !important;
+  color: #e2e8f0 !important;
+}
+
+/* Base Card Overrides in Dark Mode */
+.dark .bg-white {
+  background-color: #111827 !important; /* deep slate-900 */
+}
+
+.dark .bg-slate-50,
+.dark .bg-slate-50\/50,
+.dark .bg-slate-50\/40 {
+  background-color: #0b0f19 !important; /* deep dark-950 */
+}
+
+.dark .bg-indigo-50\/50 {
+  background-color: rgba(30, 41, 59, 0.4) !important;
+}
+
+.dark .bg-blue-50 {
+  background-color: #1e293b !important;
+}
+
+/* Borders in Dark Mode */
+.dark .border-slate-100,
+.dark .border-slate-150,
+.dark .border-slate-200,
+.dark .border-slate-250,
+.dark .border-slate-300 {
+  border-color: #1e293b !important; /* subtle dark border */
+}
+
+/* Typography in Dark Mode */
+.dark .text-slate-950,
+.dark .text-slate-900,
+.dark .text-slate-850,
+.dark h2,
+.dark h3,
+.dark h4 {
+  color: #ffffff !important;
+}
+
+.dark .text-slate-800,
+.dark .text-slate-700,
+.dark .text-slate-600 {
+  color: #cbd5e1 !important; /* light gray */
+}
+
+.dark .text-slate-500,
+.dark .text-slate-400 {
+  color: #94a3b8 !important; /* medium-light gray */
+}
+
+/* Form Inputs, Selects, Textareas in Dark Mode */
+.dark input[type="text"],
+.dark input[type="email"],
+.dark input[type="password"],
+.dark input[type="number"],
+.dark select,
+.dark textarea {
+  background-color: #0b0f19 !important;
+  color: #ffffff !important;
+  border-color: #1e293b !important;
+}
+
+.dark input[type="text"]::placeholder,
+.dark input[type="email"]::placeholder,
+.dark textarea::placeholder {
+  color: #475569 !important;
+}
+
+.dark select option {
+  background-color: #111827 !important;
+  color: #ffffff !important;
+}
+
+/* Tables in Dark Mode */
+.dark table {
+  background-color: #111827 !important;
+}
+
+.dark th {
+  background-color: #1e293b !important;
+  color: #cbd5e1 !important;
+  border-color: #1e293b !important;
+}
+
+.dark td {
+  color: #cbd5e1 !important;
+  border-color: #1e293b !important;
+}
+
+.dark tr:hover {
+  background-color: rgba(30, 41, 59, 0.4) !important;
+}
+
+/* Custom Alert & Indicator Badges in Dark Mode */
+.dark .bg-blue-100 {
+  background-color: #1e3a8a !important;
+  color: #93c5fd !important;
+}
+
+.dark .bg-green-100 {
+  background-color: #064e3b !important;
+  color: #6ee7b7 !important;
+}
+
+.dark .bg-orange-100 {
+  background-color: #7c2d12 !important;
+  color: #fdba74 !important;
+}
+
+.dark .bg-red-100 {
+  background-color: #7f1d1d !important;
+  color: #fca5a5 !important;
+}
+
+.dark .bg-slate-200 {
+  background-color: #1e293b !important;
+}
+
+/* Custom Scrollbars in Dark Mode */
+.dark ::-webkit-scrollbar-track {
+  background: #090d16;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 6px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
 /* Polish for nested camera video element inside html5-qrcode */
 #qr-reader video {
   width: 100% !important;

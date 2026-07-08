@@ -50,6 +50,7 @@ export interface Member {
   emergencyPhone?: string;
   healthConsent?: boolean;
   healthConsentDate?: string;
+  updatedAt?: string;
 }
 
 export interface AttendanceRecord {

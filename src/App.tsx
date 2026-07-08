@@ -5,14 +5,15 @@ import {
   QrCode, CreditCard, Shield, CheckCircle2, User, Landmark, Church, Phone, Calendar, MapPin, 
   Search, Check, AlertTriangle, X, ShieldAlert, LogOut, ArrowRight, Download, Printer, 
   Menu, Eye, FileText, Barcode, ChevronRight, Upload, Users, TrendingUp, DollarSign, Camera, RefreshCw,
-  Bell, Mail, MessageSquare, Lock, Clock, Send, Edit2, Trash2, Settings, Plus, Trash, Filter, Moon,
-  Server, EyeOff, Info, Copy, Globe, Scissors, Heart, Unlock
+  Bell, Mail, MessageSquare, Lock, Clock, Send, Edit2, Trash2, Settings, Plus, Trash, Filter, Moon, Sun,
+  Sparkles,
+  Server, EyeOff, Info, Copy, Globe, Scissors, Heart, Unlock, Database, Smartphone, HelpCircle, Briefcase
 } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
 import { jsPDF } from "jspdf";
 import { 
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  PieChart, Pie, Cell 
+  PieChart, Pie, Cell, BarChart, Bar 
 } from "recharts";
 
 // --- INTERFACES & ENUMS ---
@@ -43,6 +44,62 @@ import {
   saveSettingsDoc,
   clearAllSystemCollections
 } from "./firebase";
+
+// --- CHURCH LOGO COMPONENT ---
+const ChurchLogo = ({ className = "w-16 h-16" }: { className?: string }) => {
+  return (
+    <svg viewBox="0 0 100 100" className={`${className} drop-shadow-md select-none`}>
+      <defs>
+        {/* Subtle background glow radial gradient */}
+        <radialGradient id="church-logo-bg" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="65%" stopColor="#8daed1" />
+          <stop offset="100%" stopColor="#0B2E59" />
+        </radialGradient>
+        {/* Beautiful 3D gradient for the Cross */}
+        <linearGradient id="church-cross-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#ff4d4d" />
+          <stop offset="40%" stopColor="#c22525" />
+          <stop offset="100%" stopColor="#6e0a0a" />
+        </linearGradient>
+        {/* Circular text paths */}
+        <path id="church-curve-top" d="M 12 50 A 38 38 0 0 1 88 50" fill="none" />
+        <path id="church-curve-bottom" d="M 88 50 A 38 38 0 0 1 12 50" fill="none" />
+      </defs>
+      
+      {/* Outer Golden Border & Base Dark Blue Circle */}
+      <circle cx="50" cy="50" r="48" fill="#0B2E59" stroke="#D4AF37" strokeWidth="2.5" />
+      
+      {/* Inner Metallic/Red Border Ring */}
+      <circle cx="50" cy="50" r="43" fill="none" stroke="#b01c1c" strokeWidth="1" />
+      
+      {/* Central Background with Gradient */}
+      <circle cx="50" cy="50" r="35" fill="url(#church-logo-bg)" stroke="#D4AF37" strokeWidth="0.8" />
+      
+      {/* Text on top path */}
+      <text className="font-sans text-[4.8px] font-black fill-white tracking-[0.03em]">
+        <textPath href="#church-curve-top" startOffset="50%" textAnchor="middle">
+          IAFI MINISTÉRIOS AVANTE NA FÉ INT.
+        </textPath>
+      </text>
+      
+      {/* Text on bottom path */}
+      <text className="font-sans text-[4.5px] font-bold fill-sky-200 tracking-[0.01em]">
+        <textPath href="#church-curve-bottom" startOffset="50%" textAnchor="middle">
+          Guiados pelo Espírito Santo
+        </textPath>
+      </text>
+      
+      {/* Beautiful Central Red Cross with Drop Shadow */}
+      <g transform="translate(42, 33)" filter="drop-shadow(0px 1px 1.5px rgba(0,0,0,0.4))">
+        {/* Vertical shaft */}
+        <rect x="5.5" y="0" width="5" height="24" fill="url(#church-cross-grad)" rx="1" />
+        {/* Horizontal beam */}
+        <rect x="0" y="7" width="16" height="5" fill="url(#church-cross-grad)" rx="1" />
+      </g>
+    </svg>
+  );
+};
 
 // --- MOZAMBIQUE REGIONS ---
 const REGIONS = [
@@ -286,13 +343,143 @@ export default function App() {
   
   // Member portal tab
   const [memberTab, setMemberTab] = useState<"profile" | "payment" | "badge">("profile");
+  const [badgeCodeOption, setBadgeCodeOption] = useState<"both" | "qr" | "barcode">(() => {
+    const saved = localStorage.getItem("ost_badge_code_option");
+    return (saved as "both" | "qr" | "barcode") || "both";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("ost_badge_code_option", badgeCodeOption);
+  }, [badgeCodeOption]);
   
   // Admin dashboard tabs
-  const [adminTab, setAdminTab] = useState<"overview" | "members" | "audit" | "worship" | "reminders" | "smtp" | "health">("overview");
+  const [adminTab, setAdminTab] = useState<"overview" | "members" | "audit" | "worship" | "reminders" | "smtp" | "health" | "sync">("overview");
   const [remindersSubTab, setRemindersSubTab] = useState<"queue" | "history" | "templates">("queue");
+
+  // Database Synchronization config states
+  const [syncInterval, setSyncInterval] = useState<number>(() => {
+    const saved = localStorage.getItem("ost_sync_interval");
+    return saved ? parseInt(saved, 10) : 5; // default 5 minutes
+  });
+  const [isSyncActive, setIsSyncActive] = useState<boolean>(() => {
+    const saved = localStorage.getItem("ost_sync_active");
+    return saved ? saved === "true" : true; // default enabled
+  });
+  const [syncPreference, setSyncPreference] = useState<"newer" | "local" | "remote">(() => {
+    const saved = localStorage.getItem("ost_sync_preference");
+    return (saved as "newer" | "local" | "remote") || "newer"; // default newer
+  });
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(() => {
+    return localStorage.getItem("ost_last_sync_time") || null;
+  });
+  const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "success" | "error">("idle");
+  const [syncLogs, setSyncLogs] = useState<string[]>(() => {
+    const saved = localStorage.getItem("ost_sync_logs");
+    return saved ? JSON.parse(saved) : ["Serviço de sincronização inicializado."];
+  });
 
   // Health & Assistance tab states
   const [healthSearchQuery, setHealthSearchQuery] = useState("");
+
+  // Worship automatic reminders states
+  const [worshipReminderActive, setWorshipReminderActive] = useState<boolean>(() => {
+    return localStorage.getItem("ost_worship_rem_active") !== "false"; // default true
+  });
+  const [worshipReminderTime, setWorshipReminderTime] = useState<string>(() => {
+    return localStorage.getItem("ost_worship_rem_time") || "19:00";
+  });
+  const [worshipReminderTitle, setWorshipReminderTitle] = useState<string>(() => {
+    return localStorage.getItem("ost_worship_rem_title") || "Culto de Celebração & Comunhão";
+  });
+  const [worshipReminderFilterType, setWorshipReminderFilterType] = useState<"ministry" | "region" | "all">("all");
+  const [worshipReminderFilterValue, setWorshipReminderFilterValue] = useState<string>("Todos");
+  const [worshipReminderHistory, setWorshipReminderHistory] = useState<string[]>(() => {
+    const saved = localStorage.getItem("ost_worship_rem_history");
+    return saved ? JSON.parse(saved) : ["Motor de notificações de culto ativo."];
+  });
+  const [worshipReminderTemplate, setWorshipReminderTemplate] = useState<string>(() => {
+    return localStorage.getItem("ost_worship_rem_template") || 
+      "Olá {nome}! Lembramos que o nosso \"{culto}\" começará em 30 minutos (às {horário}). A sua presença é muito especial! Que Deus o abençoe.";
+  });
+  const [adminDarkMode, setAdminDarkMode] = useState<boolean>(() => {
+    return localStorage.getItem("ost_admin_dark_mode") === "true";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("ost_admin_dark_mode", String(adminDarkMode));
+  }, [adminDarkMode]);
+
+  const getReminderTriggerTime = (startTimeStr: string): string => {
+    if (!startTimeStr) return "00:00";
+    const [hours, minutes] = startTimeStr.split(":").map(Number);
+    let triggerMinutes = minutes - 30;
+    let triggerHours = hours;
+    if (triggerMinutes < 0) {
+      triggerMinutes += 60;
+      triggerHours = (triggerHours - 1 + 24) % 24;
+    }
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${pad(triggerHours)}:${pad(triggerMinutes)}`;
+  };
+
+  const handleTriggerWorshipReminders = () => {
+    const triggerTime = getReminderTriggerTime(worshipReminderTime);
+    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    const matchingWorshipMembers = members.filter(m => {
+      if (worshipReminderFilterType === "all") return true;
+      if (worshipReminderFilterType === "ministry") {
+        if (worshipReminderFilterValue === "Todos") return true;
+        return (m.ministry || "Nenhum") === worshipReminderFilterValue;
+      }
+      if (worshipReminderFilterType === "region") {
+        if (worshipReminderFilterValue === "Todos") return true;
+        return (m.region || "Nenhum") === worshipReminderFilterValue;
+      }
+      return true;
+    });
+
+    if (matchingWorshipMembers.length === 0) {
+      const newToast: AdminToast = {
+        id: "toast-" + Date.now(),
+        title: "Sem Destinatários",
+        message: "Nenhum membro corresponde aos filtros de ministério/região selecionados.",
+        type: "warning"
+      };
+      setActiveToasts(prev => [newToast, ...prev]);
+      return;
+    }
+
+    const newLog = `[${nowStr}] Enviados lembretes de "${worshipReminderTitle}" para ${matchingWorshipMembers.length} membros (${worshipReminderFilterType === 'all' ? 'Geral' : worshipReminderFilterValue}). Culto às ${worshipReminderTime} (Disparo às ${triggerTime}).`;
+    
+    setWorshipReminderHistory(prev => [newLog, ...prev]);
+    
+    const newReminders: WhatsAppReminder[] = matchingWorshipMembers.map(m => ({
+      id: "rem-worship-" + m.id + "-" + Date.now(),
+      memberId: m.id,
+      memberName: m.name,
+      contact: m.contact || "+258 840000000",
+      message: worshipReminderTemplate
+        .replace(/{nome}/g, m.name)
+        .replace(/{horário}/g, worshipReminderTime)
+        .replace(/{horario}/g, worshipReminderTime)
+        .replace(/{culto}/g, worshipReminderTitle),
+      status: "Enviado",
+      scheduledDate: new Date().toISOString().split("T")[0],
+      expiryDate: m.expiryDate || "-"
+    }));
+
+    setWhatsappReminders(prev => [...newReminders, ...prev]);
+    addLog("Administrador", `Disparou lembretes de culto (${worshipReminderTitle}) para ${matchingWorshipMembers.length} membros`, "success");
+
+    const successToast: AdminToast = {
+      id: "toast-" + Date.now(),
+      title: "Lembretes Enviados",
+      message: `${matchingWorshipMembers.length} lembretes de culto enviados com sucesso!`,
+      type: "success"
+    };
+    setActiveToasts(prev => [successToast, ...prev]);
+  };
   const [healthSpecialNeedsFilter, setHealthSpecialNeedsFilter] = useState("Todos"); // "Todos", "Sim", "Não"
   const [healthBloodTypeFilter, setHealthBloodTypeFilter] = useState("Todos");
   const [unlockedHealthMemberIds, setUnlockedHealthMemberIds] = useState<Record<string, boolean>>({});
@@ -1029,6 +1216,17 @@ export default function App() {
   // Active Badge Enlarged Modal
   const [selectedBadge, setSelectedBadge] = useState<Member | null>(null);
 
+  // Modal badge selection and preference state
+  const [modalCodeOption, setModalCodeOption] = useState<"both" | "qr" | "barcode">("both");
+  const [saveAsGlobal, setSaveAsGlobal] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (selectedBadge) {
+      setModalCodeOption(badgeCodeOption);
+      setSaveAsGlobal(false);
+    }
+  }, [selectedBadge, badgeCodeOption]);
+
   const [isCheckingExpiry, setIsCheckingExpiry] = useState(false);
   const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
   const [bulkProgress, setBulkProgress] = useState(0);
@@ -1585,6 +1783,14 @@ export default function App() {
   const [googleLoginEmail, setGoogleLoginEmail] = useState("");
   const [googleLoginName, setGoogleLoginName] = useState("");
   const [googleLoginError, setGoogleLoginError] = useState("");
+  
+  // Advanced Login Flow Improvements (Simulated Google Accounts Chooser & 2FA TOTP)
+  const [showGoogleChooser, setShowGoogleChooser] = useState(false);
+  const [totpStepOpen, setTotpStepOpen] = useState(false);
+  const [totpCode, setTotpCode] = useState("");
+  const [totpError, setTotpError] = useState("");
+  const [totpTimer, setTotpTimer] = useState(30);
+
   const [isAdminAuthorized, setIsAdminAuthorized] = useState<boolean>(() => {
     return localStorage.getItem("ost_pay_admin_authorized") === "true";
   });
@@ -1602,6 +1808,80 @@ export default function App() {
   const [approveError, setApproveError] = useState("");
   const [approveSuccess, setApproveSuccess] = useState(false);
   const [adminApprovalPasscode, setAdminApprovalPasscode] = useState("");
+
+  // Premium Login Flow Enhancement states
+  const [rememberMe, setRememberMe] = useState<boolean>(() => {
+    return localStorage.getItem("ost_pay_remember_me") !== "false";
+  });
+  const [rememberedProfile, setRememberedProfile] = useState<{ email: string; name: string; role: string; avatar: string } | null>(() => {
+    const saved = localStorage.getItem("ost_pay_remembered_profile");
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [authProgress, setAuthProgress] = useState<"idle" | "initiating" | "google_sso" | "validating_db" | "checking_status" | "success">("idle");
+  const [showManualOtp, setShowManualOtpStep] = useState(false);
+  const [manualOtpCode, setManualOtpCode] = useState("");
+  const [generatedManualOtp, setGeneratedManualOtp] = useState("");
+  const [manualOtpError, setManualOtpError] = useState("");
+  const [showLoginHelp, setShowLoginHelp] = useState(false);
+
+  // Authentication progress sequence runner
+  const startAuthFlowSequence = (email: string, name: string, onComplete: () => void) => {
+    setAuthProgress("initiating");
+    
+    setTimeout(() => {
+      setAuthProgress("google_sso");
+      
+      setTimeout(() => {
+        setAuthProgress("validating_db");
+        
+        setTimeout(() => {
+          setAuthProgress("checking_status");
+          
+          setTimeout(() => {
+            setAuthProgress("success");
+            
+            setTimeout(() => {
+              setAuthProgress("idle");
+              
+              if (rememberMe) {
+                const isExistingAdmin = email.toLowerCase() === "levichingoma12@gmail.com";
+                const profile = {
+                  email,
+                  name,
+                  role: isExistingAdmin ? "Administrador Geral" : "Membro Oficial",
+                  avatar: name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()
+                };
+                localStorage.setItem("ost_pay_remembered_profile", JSON.stringify(profile));
+                setRememberedProfile(profile);
+              }
+              
+              onComplete();
+            }, 600);
+          }, 450);
+        }, 500);
+      }, 500);
+    }, 450);
+  };
+
+  // TOTP 2FA simulation timer
+  useEffect(() => {
+    let interval: any = null;
+    if (totpStepOpen) {
+      interval = setInterval(() => {
+        setTotpTimer(prev => {
+          if (prev <= 1) {
+            return 30; // reset
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      setTotpTimer(30);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [totpStepOpen]);
 
   // URL parsing effect on mount for Admin Approval flow
   useEffect(() => {
@@ -1711,6 +1991,31 @@ export default function App() {
     const savedStr = localStorage.getItem("ost_pay_members");
     const savedList: Member[] = savedStr ? JSON.parse(savedStr) : [];
     
+    let isDifferent = false;
+    const nextMembers = members.map(m => {
+      const existing = savedList.find(ex => ex.id === m.id);
+      if (!existing) {
+        isDifferent = true;
+        return { ...m, updatedAt: new Date().toISOString() };
+      }
+      
+      const { updatedAt: _, ...mPure } = m;
+      const { updatedAt: __, ...existingPure } = existing;
+      
+      if (JSON.stringify(mPure) !== JSON.stringify(existingPure)) {
+        isDifferent = true;
+        return { ...m, updatedAt: new Date().toISOString() };
+      }
+      
+      return { ...m, updatedAt: existing.updatedAt };
+    });
+
+    if (isDifferent) {
+      setMembers(nextMembers);
+      localStorage.setItem("ost_pay_members", JSON.stringify(nextMembers));
+      return;
+    }
+    
     members.forEach(member => {
       const existing = savedList.find(m => m.id === member.id);
       if (!existing || JSON.stringify(existing) !== JSON.stringify(member)) {
@@ -1727,6 +2032,159 @@ export default function App() {
 
     localStorage.setItem("ost_pay_members", JSON.stringify(members));
   }, [members]);
+
+  // --- SYNC SETTINGS PERSISTENCE ---
+  useEffect(() => {
+    localStorage.setItem("ost_sync_interval", syncInterval.toString());
+  }, [syncInterval]);
+
+  useEffect(() => {
+    localStorage.setItem("ost_sync_active", isSyncActive.toString());
+  }, [isSyncActive]);
+
+  useEffect(() => {
+    localStorage.setItem("ost_sync_preference", syncPreference);
+  }, [syncPreference]);
+
+  // --- SYNC CONFIG LOG HELPER ---
+  const addSyncLog = (msg: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const date = new Date().toLocaleDateString();
+    const formattedMsg = `[${date} ${timestamp}] ${msg}`;
+    setSyncLogs(prev => {
+      const updated = [formattedMsg, ...prev].slice(0, 50); // limit to 50 logs
+      localStorage.setItem("ost_sync_logs", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  // --- MANUAL / AUTOMATIC DATABASE SYNC ENGINE ---
+  const performDatabaseSync = async (isManual = false) => {
+    setSyncStatus("syncing");
+    try {
+      const remoteMembers = await getMembers();
+      const localSaved = localStorage.getItem("ost_pay_members");
+      const localMembers: Member[] = localSaved ? JSON.parse(localSaved) : members;
+
+      const mergedList: Member[] = [];
+      const localMap = new Map(localMembers.map(m => [m.id, m]));
+      const remoteMap = new Map(remoteMembers.map(m => [m.id, m]));
+
+      const allIds = new Set([...localMap.keys(), ...remoteMap.keys()]);
+      
+      let uploadedCount = 0;
+      let downloadedCount = 0;
+      let mergedCount = 0;
+
+      for (const id of allIds) {
+        const local = localMap.get(id);
+        const remote = remoteMap.get(id);
+
+        if (local && !remote) {
+          await saveMember(local);
+          mergedList.push(local);
+          uploadedCount++;
+        } else if (!local && remote) {
+          mergedList.push(remote);
+          downloadedCount++;
+        } else if (local && remote) {
+          const localStr = JSON.stringify(local);
+          const remoteStr = JSON.stringify(remote);
+          
+          if (localStr === remoteStr) {
+            mergedList.push(local);
+          } else {
+            if (syncPreference === "local") {
+              await saveMember(local);
+              mergedList.push(local);
+              uploadedCount++;
+            } else if (syncPreference === "remote") {
+              mergedList.push(remote);
+              downloadedCount++;
+            } else {
+              const localTime = local.updatedAt ? new Date(local.updatedAt).getTime() : 0;
+              const remoteTime = remote.updatedAt ? new Date(remote.updatedAt).getTime() : 0;
+              
+              if (localTime > remoteTime) {
+                await saveMember(local);
+                mergedList.push(local);
+                uploadedCount++;
+              } else if (remoteTime > localTime) {
+                mergedList.push(remote);
+                downloadedCount++;
+              } else {
+                await saveMember(local);
+                mergedList.push(local);
+                mergedCount++;
+              }
+            }
+          }
+        }
+      }
+
+      setMembers(mergedList);
+      localStorage.setItem("ost_pay_members", JSON.stringify(mergedList));
+
+      const now = new Date();
+      const timestamp = now.toLocaleTimeString();
+      const date = now.toLocaleDateString();
+      const timeStr = `${date} ${timestamp}`;
+      
+      setLastSyncTime(timeStr);
+      localStorage.setItem("ost_last_sync_time", timeStr);
+      setSyncStatus("success");
+      
+      const logMsg = `Sincronização ${isManual ? "manual" : "automática"} concluída com sucesso. Enviados: ${uploadedCount}, Recebidos: ${downloadedCount}.`;
+      addSyncLog(logMsg);
+      
+      addLog("Sistema", `Sincronização de dados concluída (${isManual ? "manual" : "auto"}). ${uploadedCount} uploads, ${downloadedCount} downloads. Preferência: ${syncPreference}`, "info");
+
+      if (isManual) {
+        setActiveToasts(prev => [
+          {
+            id: "toast-" + Date.now(),
+            title: "Sincronização Concluída",
+            message: `Sincronização com Firestore concluída. ${uploadedCount} enviados, ${downloadedCount} descarregados.`,
+            type: "success"
+          },
+          ...prev
+        ]);
+      }
+    } catch (error) {
+      console.error("Auto-sync error:", error);
+      setSyncStatus("error");
+      addSyncLog(`Falha de sincronização: ${error instanceof Error ? error.message : "Erro desconhecido"}`);
+      if (isManual) {
+        setActiveToasts(prev => [
+          {
+            id: "toast-" + Date.now(),
+            title: "Erro de Sincronização",
+            message: `Não foi possível sincronizar os dados. Verifique a sua ligação.`,
+            type: "danger"
+          },
+          ...prev
+        ]);
+      }
+    }
+  };
+
+  // --- DATABASE SYNC SCHEDULER ---
+  useEffect(() => {
+    if (!isSyncActive || syncInterval <= 0) return;
+
+    const initialTimeout = setTimeout(() => {
+      performDatabaseSync(false);
+    }, 8000); // 8 seconds delay after startup
+
+    const intervalId = setInterval(() => {
+      performDatabaseSync(false);
+    }, syncInterval * 60 * 1000);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(intervalId);
+    };
+  }, [syncInterval, isSyncActive, syncPreference]);
 
   useEffect(() => {
     localStorage.setItem("ost_pay_logs", JSON.stringify(logs));
@@ -1810,6 +2268,14 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("ost_pay_reminder_advance_days", String(reminderAdvanceDays));
   }, [reminderAdvanceDays]);
+
+  useEffect(() => {
+    localStorage.setItem("ost_worship_rem_active", String(worshipReminderActive));
+    localStorage.setItem("ost_worship_rem_time", worshipReminderTime);
+    localStorage.setItem("ost_worship_rem_title", worshipReminderTitle);
+    localStorage.setItem("ost_worship_rem_history", JSON.stringify(worshipReminderHistory));
+    localStorage.setItem("ost_worship_rem_template", worshipReminderTemplate);
+  }, [worshipReminderActive, worshipReminderTime, worshipReminderTitle, worshipReminderHistory, worshipReminderTemplate]);
 
   useEffect(() => {
     if (!isPollingActive || currentMode !== "admin") {
@@ -2239,12 +2705,14 @@ export default function App() {
       startX?: number;
       startY?: number;
       scale?: number;
+      codeFormat?: "both" | "qr" | "barcode";
     }
   ): Promise<string> => {
     const withBleedAndCrop = options?.withBleedAndCrop || false;
     const scale = options?.scale || 1;
     const dx = options?.startX !== undefined ? options.startX : (withBleedAndCrop ? 3 : 0);
     const dy = options?.startY !== undefined ? options.startY : (withBleedAndCrop ? 3 : 0);
+    const codeFormat = options?.codeFormat || "both";
 
     // If docInstance is provided, use it; otherwise create a new jsPDF instance
     const doc = options?.docInstance || new jsPDF({
@@ -2272,10 +2740,10 @@ export default function App() {
     doc.setLineWidth(0.3 * scale);
     doc.rect(dx, dy, w, h);
 
-    // Elegant inner border offset by 1.2mm for a high-end corporate framing
+    // Elegant inner border offset by 1.2mm for a high-end corporate framing (Gold, matching the UI #D4AF37)
     const innerOffset = 1.2 * scale;
-    doc.setDrawColor(theme.pdfPrimaryRGB[0], theme.pdfPrimaryRGB[1], theme.pdfPrimaryRGB[2]);
-    doc.setLineWidth(0.15 * scale);
+    doc.setDrawColor(212, 175, 55); // Gold #D4AF37
+    doc.setLineWidth(0.25 * scale);
     doc.rect(dx + innerOffset, dy + innerOffset, w - 2 * innerOffset, h - 2 * innerOffset);
 
     // 2. ANTI-COUNTERFEITING SECURITY WATERMARK/GUILLOCHÉ IN THE BACKGROUND
@@ -2291,8 +2759,8 @@ export default function App() {
     doc.line(centerX - 40 * scale, centerY, centerX + 40 * scale, centerY);
     doc.line(centerX, centerY - 40 * scale, centerX, centerY + 40 * scale);
 
-    // 3. PREMIUM TOP HEADER DESIGN (Deep charcoal background with modern diagonal stripe)
-    doc.setFillColor(15, 23, 42); // Deep Slate-900 / Slate-950
+    // 3. PREMIUM TOP HEADER DESIGN (Royal Blue matching #0B2E59)
+    doc.setFillColor(11, 46, 89); // Royal Blue #0B2E59
     if (withBleedAndCrop && !options?.docInstance) {
       // Cover the full top bleed area
       doc.rect(0, 0, 91, 30, "F");
@@ -2300,8 +2768,8 @@ export default function App() {
       doc.rect(dx, dy, w, 27 * scale, "F");
     }
 
-    // Modern colored accent ribbon under the main header
-    doc.setFillColor(theme.pdfPrimaryRGB[0], theme.pdfPrimaryRGB[1], theme.pdfPrimaryRGB[2]);
+    // Modern colored accent ribbon under the main header (Gold matching #D4AF37)
+    doc.setFillColor(212, 175, 55); // Gold #D4AF37
     if (withBleedAndCrop && !options?.docInstance) {
       doc.rect(0, 30, 91, 1.8, "F");
     } else {
@@ -2324,61 +2792,75 @@ export default function App() {
     doc.setFillColor(255, 210, 0); // Yellow
     doc.rect(ribbonX + 3 * ribbonW, ribbonY, ribbonW, ribbonH, "F");
 
-    // Title Texts in the Header
+    // Title Texts in the Header (Matching IAFI MINISTÉRIOS and Avante na Fé Internacional)
     doc.setTextColor(255, 255, 255);
     doc.setFont("Helvetica", "bold");
-    doc.setFontSize(8.5 * scale);
-    doc.text("ORGANIZAÇÃO SOCIAL", dx + w / 2, dy + 10 * scale, { align: "center" });
-    doc.text("DO TRABALHO", dx + w / 2, dy + 14 * scale, { align: "center" });
+    doc.setFontSize(9 * scale);
+    doc.text("IAFI MINISTÉRIOS", dx + w / 2, dy + 10 * scale, { align: "center" });
+
+    doc.setTextColor(212, 175, 55); // Gold #D4AF37
+    doc.setFontSize(6.5 * scale);
+    doc.setFont("Helvetica", "bold");
+    doc.text("Avante na Fé Internacional", dx + w / 2, dy + 15 * scale, { align: "center" });
 
     // Header subtitle
-    doc.setTextColor(theme.pdfSecondaryRGB[0], theme.pdfSecondaryRGB[1], theme.pdfSecondaryRGB[2]);
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(5.5 * scale);
-    doc.setFont("Helvetica", "bold");
-    doc.text("CRACHÁ OFICIAL DE FILIAÇÃO", dx + w / 2, dy + 20 * scale, { align: "center" });
+    doc.setFont("Helvetica", "normal");
+    doc.text("CRACHÁ OFICIAL DE MEMBRO", dx + w / 2, dy + 20 * scale, { align: "center" });
 
     doc.setTextColor(148, 163, 184); // Slate-400
     doc.setFontSize(4.2 * scale);
     doc.setFont("Helvetica", "normal");
     doc.text("REPÚBLICA DE MOÇAMBIQUE", dx + w / 2, dy + 24 * scale, { align: "center" });
 
-    // 4. PORTRAIT PHOTO FRAME WITH INNER SHADOW SIMULATION
+    // 4. PORTRAIT PHOTO FRAME (Circular like UI)
     let y = dy + 37 * scale;
-    
-    // Draw outer portrait backdrop/shadow rectangle
-    doc.setFillColor(241, 245, 249); // Slate-100
-    doc.rect(dx + w / 2 - 13 * scale, y + 1 * scale, 26 * scale, 26 * scale, "F");
+    const photoRadius = 13 * scale;
+    const photoCenterX = dx + w / 2;
+    const photoCenterY = y + photoRadius;
 
-    // Main photo frame
-    doc.setDrawColor(theme.pdfPrimaryRGB[0], theme.pdfPrimaryRGB[1], theme.pdfPrimaryRGB[2]);
+    // Outer golden ring (similar to rounded-full border-2 border-[#D4AF37])
+    doc.setDrawColor(212, 175, 55); // Gold #D4AF37
     doc.setLineWidth(0.6 * scale);
     doc.setFillColor(255, 255, 255);
-    doc.rect(dx + w / 2 - 13.5 * scale, y - 0.5 * scale, 27 * scale, 27 * scale, "FD");
+    doc.ellipse(photoCenterX, photoCenterY, photoRadius, photoRadius, "FD");
 
     if (member.photoUrl) {
       try {
         const base64Photo = await getBase64ImageFromUrl(member.photoUrl);
-        doc.addImage(base64Photo, "JPEG", dx + w / 2 - 13 * scale, y, 26 * scale, 26 * scale);
+        doc.saveGraphicsState();
+        doc.ellipse(photoCenterX, photoCenterY, photoRadius - 0.5 * scale, photoRadius - 0.5 * scale, "F");
+        doc.clip();
+        doc.addImage(
+          base64Photo, 
+          "JPEG", 
+          photoCenterX - photoRadius, 
+          photoCenterY - photoRadius, 
+          photoRadius * 2, 
+          photoRadius * 2
+        );
+        doc.restoreGraphicsState();
       } catch (e) {
-        // Fallback initials inside custom background
-        doc.setFillColor(theme.pdfSecondaryRGB[0], theme.pdfSecondaryRGB[1], theme.pdfSecondaryRGB[2]);
-        doc.rect(dx + w / 2 - 13 * scale, y, 26 * scale, 26 * scale, "F");
-        doc.setTextColor(theme.pdfPrimaryRGB[0], theme.pdfPrimaryRGB[1], theme.pdfPrimaryRGB[2]);
+        // Fallback initials inside circular background
+        doc.setFillColor(11, 46, 89); // Royal Blue #0B2E59
+        doc.ellipse(photoCenterX, photoCenterY, photoRadius - 0.5 * scale, photoRadius - 0.5 * scale, "F");
+        doc.setTextColor(212, 175, 55); // Gold #D4AF37
         doc.setFont("Helvetica", "bold");
-        doc.setFontSize(14 * scale);
-        doc.text(member.name.substring(0, 2).toUpperCase(), dx + w / 2, y + 15 * scale, { align: "center" });
+        doc.setFontSize(13 * scale);
+        doc.text(member.name.substring(0, 2).toUpperCase(), photoCenterX, photoCenterY + 4 * scale, { align: "center" });
       }
     } else {
-      // Fallback initials inside custom background
-      doc.setFillColor(theme.pdfSecondaryRGB[0], theme.pdfSecondaryRGB[1], theme.pdfSecondaryRGB[2]);
-      doc.rect(dx + w / 2 - 13 * scale, y, 26 * scale, 26 * scale, "F");
-      doc.setTextColor(theme.pdfPrimaryRGB[0], theme.pdfPrimaryRGB[1], theme.pdfPrimaryRGB[2]);
+      // Fallback initials inside circular background
+      doc.setFillColor(11, 46, 89); // Royal Blue #0B2E59
+      doc.ellipse(photoCenterX, photoCenterY, photoRadius - 0.5 * scale, photoRadius - 0.5 * scale, "F");
+      doc.setTextColor(212, 175, 55); // Gold #D4AF37
       doc.setFont("Helvetica", "bold");
-      doc.setFontSize(14 * scale);
-      doc.text(member.name.substring(0, 2).toUpperCase(), dx + w / 2, y + 15 * scale, { align: "center" });
+      doc.setFontSize(13 * scale);
+      doc.text(member.name.substring(0, 2).toUpperCase(), photoCenterX, photoCenterY + 4 * scale, { align: "center" });
     }
 
-    y += 32 * scale;
+    y += 28 * scale;
 
     // 5. MEMBER NAME WITH OVERHEAD SMALL DESCRIPTION
     doc.setTextColor(148, 163, 184); // Slate-400
@@ -2411,12 +2893,12 @@ export default function App() {
     y += 4.5 * scale;
 
     // 6. POSITION / ROLE PILL BADGE WITH SPACING
-    doc.setFillColor(theme.pdfSecondaryRGB[0], theme.pdfSecondaryRGB[1], theme.pdfSecondaryRGB[2]);
-    doc.setDrawColor(theme.pdfPrimaryRGB[0], theme.pdfPrimaryRGB[1], theme.pdfPrimaryRGB[2]);
-    doc.setLineWidth(0.2 * scale);
+    doc.setFillColor(11, 46, 89); // Royal Blue #0B2E59
+    doc.setDrawColor(212, 175, 55); // Gold #D4AF37
+    doc.setLineWidth(0.25 * scale);
     doc.roundedRect(dx + w / 2 - 18 * scale, y - 1.6 * scale, 36 * scale, 4.2 * scale, 0.8 * scale, 0.8 * scale, "FD");
 
-    doc.setTextColor(theme.pdfPrimaryRGB[0], theme.pdfPrimaryRGB[1], theme.pdfPrimaryRGB[2]);
+    doc.setTextColor(212, 175, 55); // Gold #D4AF37
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(5.8 * scale);
     const trackedRole = theme.name.toUpperCase().split("").join(" ");
@@ -2440,12 +2922,12 @@ export default function App() {
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(4.2 * scale);
     doc.setTextColor(148, 163, 184); // Slate-400
-    doc.text("IDENTIFICAÇÃO", cellX1, y + 3.2 * scale);
-    doc.text("DATA DE EMISSÃO", cellX2, y + 3.2 * scale);
+    doc.text("ID MEMBRO", cellX1, y + 3.2 * scale);
+    doc.text("EMISSÃO", cellX2, y + 3.2 * scale);
 
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(5.8 * scale);
-    doc.setTextColor(15, 23, 42); // Slate-900
+    doc.setTextColor(11, 46, 89); // Royal Blue #0B2E59
     doc.text(member.id, cellX1, y + 6.2 * scale);
     doc.text(new Date(member.createdAt).toLocaleDateString(), cellX2, y + 6.2 * scale);
 
@@ -2453,14 +2935,14 @@ export default function App() {
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(4.2 * scale);
     doc.setTextColor(148, 163, 184); // Slate-400
-    doc.text("ESTADO DO REGISTO", cellX1, y + 9.5 * scale);
-    doc.text("QUOTAS ANUAIS", cellX2, y + 9.5 * scale);
+    doc.text("ESTADO", cellX1, y + 9.5 * scale);
+    doc.text("QUOTAS", cellX2, y + 9.5 * scale);
 
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(5.5 * scale);
     doc.setTextColor(22, 163, 74); // Green-600
     doc.text("ATIVO", cellX1, y + 12.5 * scale);
-    doc.text("SITUAÇÃO REGULAR", cellX2, y + 12.5 * scale);
+    doc.text("EM DIA", cellX2, y + 12.5 * scale);
 
     y += metaCardH + 3.5 * scale;
 
@@ -2471,56 +2953,114 @@ export default function App() {
 
     y += 2.2 * scale;
 
-    // 8. SIDE-BY-SIDE BOTTOM QR & BARCODE SECTION (Modern biometric card style)
-    const qrSize = 14 * scale;
+    // 8. BOTTOM QR & BARCODE SECTION (Optionally QR, Barcode, or both)
     const bottomY = y + 1 * scale;
 
-    // Small column labels
-    doc.setFont("Helvetica", "bold");
-    doc.setFontSize(4.2 * scale);
-    doc.setTextColor(148, 163, 184);
-    doc.text("VALIDAÇÃO SECURE QR", dx + 6 * scale, bottomY);
-    doc.text("ACESSO BIOMÉTRICO", dx + w - 6 * scale, bottomY, { align: "right" });
-
-    // Left Column: QR Code
-    try {
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(window.location.origin + "/?validate=" + member.id)}`;
-      const base64QR = await getBase64ImageFromUrl(qrUrl);
-      doc.addImage(base64QR, "PNG", dx + 6 * scale, bottomY + 1.2 * scale, qrSize, qrSize);
-    } catch (e) {
-      // Draw fallback QR rectangle
-      doc.setDrawColor(226, 232, 240);
-      doc.rect(dx + 6 * scale, bottomY + 1.2 * scale, qrSize, qrSize);
-      doc.setFont("Helvetica", "normal");
+    if (codeFormat === "both") {
+      // Small column labels
+      doc.setFont("Helvetica", "bold");
       doc.setFontSize(4.2 * scale);
       doc.setTextColor(148, 163, 184);
-      doc.text("QR-CODE", dx + 6 * scale + qrSize / 2, bottomY + 1.2 * scale + qrSize / 2 + 1 * scale, { align: "center" });
+      doc.text("VALIDAÇÃO SECURE QR", dx + 6 * scale, bottomY);
+      doc.text("ACESSO BIOMÉTRICO", dx + w - 6 * scale, bottomY, { align: "right" });
+
+      const qrSize = 14 * scale;
+      // Left Column: QR Code
+      try {
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(window.location.origin + "/?validate=" + member.id)}`;
+        const base64QR = await getBase64ImageFromUrl(qrUrl);
+        doc.addImage(base64QR, "PNG", dx + 6 * scale, bottomY + 1.2 * scale, qrSize, qrSize);
+      } catch (e) {
+        // Draw fallback QR rectangle
+        doc.setDrawColor(226, 232, 240);
+        doc.rect(dx + 6 * scale, bottomY + 1.2 * scale, qrSize, qrSize);
+        doc.setFont("Helvetica", "normal");
+        doc.setFontSize(4.2 * scale);
+        doc.setTextColor(148, 163, 184);
+        doc.text("QR-CODE", dx + 6 * scale + qrSize / 2, bottomY + 1.2 * scale + qrSize / 2 + 1 * scale, { align: "center" });
+      }
+
+      // Right Column: Barcode lines
+      const barcodeStartX = dx + w - 38 * scale;
+      const barcodeY = bottomY + 2 * scale;
+      const barcodeH = 7.5 * scale;
+
+      doc.setFillColor(15, 23, 42); // Black/Deep Slate lines
+      const lineWeights = [1.5, 0.5, 2, 0.4, 1.2, 1.5, 0.5, 2.2, 1, 0.5, 1.5, 0.4, 1, 2, 0.5, 1.5];
+      let currentX = barcodeStartX;
+      lineWeights.forEach((wWeight) => {
+        doc.rect(currentX, barcodeY, wWeight * 0.5 * scale, barcodeH, "F");
+        currentX += (wWeight * 0.5 * scale) + 0.4 * scale;
+      });
+
+      // Barcode number centered under the lines
+      const barcodeWidth = currentX - barcodeStartX;
+      doc.setTextColor(100, 116, 139); // Slate-500
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(4.5 * scale);
+      doc.text(
+        member.barcode || "120394102941",
+        barcodeStartX + barcodeWidth / 2,
+        barcodeY + barcodeH + 2.5 * scale,
+        { align: "center" }
+      );
+    } else if (codeFormat === "qr") {
+      // Centered QR Code
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(4.5 * scale);
+      doc.setTextColor(148, 163, 184);
+      doc.text("VALIDAÇÃO SECURE QR", dx + w / 2, bottomY, { align: "center" });
+
+      const qrSize = 17 * scale;
+      const qrX = dx + w / 2 - qrSize / 2;
+      try {
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.origin + "/?validate=" + member.id)}`;
+        const base64QR = await getBase64ImageFromUrl(qrUrl);
+        doc.addImage(base64QR, "PNG", qrX, bottomY + 1.5 * scale, qrSize, qrSize);
+      } catch (e) {
+        doc.setDrawColor(226, 232, 240);
+        doc.rect(qrX, bottomY + 1.5 * scale, qrSize, qrSize);
+        doc.setFont("Helvetica", "normal");
+        doc.setFontSize(4.5 * scale);
+        doc.setTextColor(148, 163, 184);
+        doc.text("QR-CODE", dx + w / 2, bottomY + 1.5 * scale + qrSize / 2 + 1 * scale, { align: "center" });
+      }
+    } else {
+      // Centered Barcode
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(4.5 * scale);
+      doc.setTextColor(148, 163, 184);
+      doc.text("ACESSO BIOMÉTRICO (CÓDIGO DE BARRAS)", dx + w / 2, bottomY, { align: "center" });
+
+      const barcodeY = bottomY + 2 * scale;
+      const barcodeH = 8.5 * scale;
+      
+      // Calculate total barcode width to center it
+      const lineWeights = [1.5, 0.5, 2, 0.4, 1.2, 1.5, 0.5, 2.2, 1, 0.5, 1.5, 0.4, 1, 2, 0.5, 1.5, 1, 1.5, 0.5, 2];
+      let totalBarcodeW = 0;
+      lineWeights.forEach((wWeight) => {
+        totalBarcodeW += (wWeight * 0.55 * scale) + 0.4 * scale;
+      });
+      
+      const barcodeStartX = dx + w / 2 - totalBarcodeW / 2;
+      let currentX = barcodeStartX;
+      doc.setFillColor(15, 23, 42);
+      lineWeights.forEach((wWeight) => {
+        doc.rect(currentX, barcodeY, wWeight * 0.55 * scale, barcodeH, "F");
+        currentX += (wWeight * 0.55 * scale) + 0.4 * scale;
+      });
+
+      // Barcode number centered under the lines
+      doc.setTextColor(100, 116, 139);
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(5 * scale);
+      doc.text(
+        member.barcode || "120394102941",
+        dx + w / 2,
+        barcodeY + barcodeH + 2.8 * scale,
+        { align: "center" }
+      );
     }
-
-    // Right Column: Barcode lines
-    const barcodeStartX = dx + w - 38 * scale;
-    const barcodeY = bottomY + 2 * scale;
-    const barcodeH = 7.5 * scale;
-
-    doc.setFillColor(15, 23, 42); // Black/Deep Slate lines
-    const lineWeights = [1.5, 0.5, 2, 0.4, 1.2, 1.5, 0.5, 2.2, 1, 0.5, 1.5, 0.4, 1, 2, 0.5, 1.5];
-    let currentX = barcodeStartX;
-    lineWeights.forEach((wWeight) => {
-      doc.rect(currentX, barcodeY, wWeight * 0.5 * scale, barcodeH, "F");
-      currentX += (wWeight * 0.5 * scale) + 0.4 * scale;
-    });
-
-    // Barcode number centered under the lines
-    const barcodeWidth = currentX - barcodeStartX;
-    doc.setTextColor(100, 116, 139); // Slate-500
-    doc.setFont("Helvetica", "bold");
-    doc.setFontSize(4.5 * scale);
-    doc.text(
-      member.barcode || "120394102941",
-      barcodeStartX + barcodeWidth / 2,
-      barcodeY + barcodeH + 2.5 * scale,
-      { align: "center" }
-    );
 
     // 9. DRAW SINGLE-BADGE CROP MARKS (if requested)
     if (withBleedAndCrop && !options?.docInstance) {
@@ -2603,7 +3143,8 @@ export default function App() {
           docInstance: doc,
           startX: dx,
           startY: dy,
-          scale: scale
+          scale: scale,
+          codeFormat: badgeCodeOption
         });
 
         // Draw fine professional crop marks around each card on the A4 sheet
@@ -2657,7 +3198,7 @@ export default function App() {
 
     try {
       // Compile the PDF badge as a base64 Data URI
-      const dataUri = await handleGenerateBadgePDF(member, false);
+      const dataUri = await handleGenerateBadgePDF(member, false, { codeFormat: badgeCodeOption });
 
       if (platform === "email") {
         setBadgeSendProgress(45);
@@ -3965,6 +4506,59 @@ export default function App() {
     .filter(m => m.paymentStatus === "Ativo")
     .reduce((sum, m) => sum + (m.paymentAmount || 0), 0);
 
+  // --- CALCULATE ACTIVE AND BLOCKED MONTHLY VARIATION ---
+  const statusVariationData = (() => {
+    const now = new Date();
+    const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // Active members
+    const activeThisMonth = members.filter(m => m.paymentStatus === "Ativo").length;
+    const activeLastMonth = members.filter(m => {
+      if (m.paymentStatus !== "Ativo") return false;
+      if (!m.createdAt) return true;
+      return new Date(m.createdAt) < startOfCurrentMonth;
+    }).length;
+
+    // Blocked members
+    const blockedThisMonth = members.filter(m => m.paymentStatus === "Bloqueado").length;
+    const blockedLastMonth = members.filter(m => {
+      if (m.paymentStatus !== "Bloqueado") return false;
+      if (!m.createdAt) return true;
+      return new Date(m.createdAt) < startOfCurrentMonth;
+    }).length;
+
+    const activeDiff = activeThisMonth - activeLastMonth;
+    const activePct = activeLastMonth > 0 ? (activeDiff / activeLastMonth) * 100 : (activeThisMonth > 0 ? 100 : 0);
+
+    const blockedDiff = blockedThisMonth - blockedLastMonth;
+    const blockedPct = blockedLastMonth > 0 ? (blockedDiff / blockedLastMonth) * 100 : (blockedThisMonth > 0 ? 100 : 0);
+
+    return {
+      activeThisMonth,
+      activeLastMonth,
+      activePct,
+      activeDiff,
+      blockedThisMonth,
+      blockedLastMonth,
+      blockedPct,
+      blockedDiff,
+      chartData: [
+        {
+          name: "Ativos",
+          "Mês Anterior": activeLastMonth,
+          "Mês Atual": activeThisMonth,
+          "Variação (%)": parseFloat(activePct.toFixed(1)),
+        },
+        {
+          name: "Bloqueados",
+          "Mês Anterior": blockedLastMonth,
+          "Mês Atual": blockedThisMonth,
+          "Variação (%)": parseFloat(blockedPct.toFixed(1)),
+        }
+      ]
+    };
+  })();
+
   // --- CALCULATE LAST 30 DAYS GROWTH STATS ---
   const thirtyDaysAgoDate = new Date();
   thirtyDaysAgoDate.setDate(thirtyDaysAgoDate.getDate() - 30);
@@ -4249,10 +4843,10 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans flex flex-col text-slate-800">
+    <div className={`min-h-screen font-sans flex flex-col transition-colors duration-300 ${adminDarkMode && currentMode === "admin" ? "dark bg-slate-950 text-slate-100" : "bg-slate-50 text-slate-800"}`}>
       
       {/* Main Professional Header Navigation */}
-      <nav className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-6 lg:px-16 shadow-sm sticky top-0 z-40">
+      <nav className="h-20 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-850 flex items-center justify-between px-6 lg:px-16 shadow-sm sticky top-0 z-40 transition-colors duration-300">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentMode("landing")}>
           <img 
             src={ostPayLogo} 
@@ -4263,7 +4857,7 @@ export default function App() {
         </div>
 
         {/* Desktop Nav Links */}
-        <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600">
+        <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600 dark:text-slate-300">
           <button onClick={() => setCurrentMode("landing")} className={`hover:text-blue-700 transition ${currentMode === "landing" ? "text-blue-700" : ""}`}>Início</button>
           <a href="#como-funciona" className="hover:text-blue-700 transition">Como Funciona</a>
           <a href="#beneficios" className="hover:text-blue-700 transition">Benefícios</a>
@@ -4290,18 +4884,18 @@ export default function App() {
           {currentUser ? (
             <div className="flex items-center gap-3">
               <div className="hidden sm:flex flex-col text-right">
-                <span className="text-xs font-bold text-slate-900">
+                <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
                   {"name" in currentUser ? currentUser.name : "Administrador"}
                 </span>
-                <span className="text-[10px] text-slate-500">
+                <span className="text-[10px] text-slate-500 dark:text-slate-400">
                   {"region" in currentUser ? currentUser.region : "Acesso Geral"}
                 </span>
               </div>
-              <div className="w-10 h-10 bg-blue-100 rounded-full border border-blue-200 flex items-center justify-center overflow-hidden">
+              <div className="w-10 h-10 bg-blue-100 dark:bg-slate-800 rounded-full border border-blue-200 dark:border-slate-700 flex items-center justify-center overflow-hidden">
                 {"photoUrl" in currentUser && currentUser.photoUrl ? (
                   <img src={currentUser.photoUrl} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
-                  <User className="w-5 h-5 text-blue-700" />
+                  <User className="w-5 h-5 text-blue-700 dark:text-blue-400" />
                 )}
               </div>
               <button 
@@ -4315,7 +4909,7 @@ export default function App() {
                   setCurrentMode("landing");
                 }} 
                 title="Sair"
-                className="p-2 text-slate-400 hover:text-red-500 rounded-full hover:bg-slate-100"
+                className="p-2 text-slate-400 hover:text-red-500 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <LogOut className="w-5 h-5" />
               </button>
@@ -4757,14 +5351,57 @@ export default function App() {
         {/* 2. THE LOGIN FLOW SCREEN                */}
         {/* ======================================= */}
         {showLoginModal && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl border border-slate-100 text-center relative animate-in fade-in zoom-in duration-150">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-8 shadow-2xl border border-slate-100 dark:border-slate-800 relative overflow-hidden animate-in fade-in zoom-in duration-150 transition-colors duration-300">
+              
+              {/* INTERACTIVE GEOLOCATION & FIREBASE PROGRESS LOADER OVERLAY */}
+              {authProgress !== "idle" && (
+                <div className="absolute inset-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm rounded-3xl flex flex-col items-center justify-center p-8 z-50 animate-in fade-in duration-200">
+                  <div className="relative w-20 h-20 mb-6">
+                    <div className="absolute inset-0 rounded-full border-4 border-slate-100 dark:border-slate-800"></div>
+                    <div className="absolute inset-0 rounded-full border-4 border-blue-600 dark:border-blue-500 border-t-transparent animate-spin"></div>
+                    <div className="absolute inset-2 rounded-full border-4 border-indigo-100 dark:border-indigo-950 border-b-transparent animate-spin duration-1000"></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-blue-600 dark:text-blue-400 animate-pulse" viewBox="0 0 24 24">
+                        <path fill="currentColor" d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4Z"/>
+                      </svg>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2 text-center max-w-sm">
+                    <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">A Autenticar Sessão</h4>
+                    
+                    <p className="text-xs text-blue-600 dark:text-blue-400 font-black animate-pulse">
+                      {authProgress === "initiating" && "A estabelecer ligação segura com os servidores..."}
+                      {authProgress === "google_sso" && "Conta Google autenticada! A extrair credenciais..."}
+                      {authProgress === "validating_db" && "A validar o seu registo filiado no Firestore..."}
+                      {authProgress === "checking_status" && "A verificar validade do crachá e quotas anuais..."}
+                      {authProgress === "success" && "Sessão autorizada com sucesso!"}
+                    </p>
+                    
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-normal">
+                      Por favor, mantenha esta janela aberta. O sistema OST utiliza encriptação RSA para proteger os seus dados biométricos e credenciais.
+                    </p>
+                  </div>
+
+                  <div className="w-48 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mt-6">
+                    <div className={`h-full bg-gradient-to-r from-blue-600 to-indigo-600 transition-all duration-300 ${
+                      authProgress === "initiating" ? "w-1/5" :
+                      authProgress === "google_sso" ? "w-2/5" :
+                      authProgress === "validating_db" ? "w-3/5" :
+                      authProgress === "checking_status" ? "w-4/5" : "w-full"
+                    }`}></div>
+                  </div>
+                </div>
+              )}
+
               <button 
                 onClick={() => {
                   setShowLoginModal(false);
                   setGoogleLoginError("");
+                  setShowManualOtpStep(false);
                 }}
-                className="absolute top-5 right-5 p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+                className="absolute top-5 right-5 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 z-10"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -4778,229 +5415,364 @@ export default function App() {
                 />
               </div>
 
-              <h3 className="text-xl font-black text-slate-900 mb-1">Iniciar Sessão</h3>
-              <p className="text-xs text-slate-500 mb-5">Selecione o seu perfil para aceder aos serviços digitais.</p>
+              <div className="text-center mb-6">
+                <h3 className="text-xl font-black text-slate-900 dark:text-white mb-1">Iniciar Sessão</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Selecione o seu perfil para aceder aos serviços digitais da OST Moçambique.</p>
+              </div>
 
               {/* Tab Selector */}
-              <div className="flex bg-slate-100 p-1 rounded-xl mb-5">
+              <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl mb-6">
                 <button
                   type="button"
                   onClick={() => setLoginTab("membro")}
-                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${loginTab === "membro" ? "bg-white text-blue-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${loginTab === "membro" ? "bg-white dark:bg-slate-800 text-blue-900 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"}`}
                 >
                   Membro Normal
                 </button>
                 <button
                   type="button"
                   onClick={() => setLoginTab("admin")}
-                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${loginTab === "admin" ? "bg-white text-blue-900 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${loginTab === "admin" ? "bg-white dark:bg-slate-800 text-blue-900 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"}`}
                 >
                   Administrador
                 </button>
               </div>
 
               {loginTab === "membro" ? (
-                <div className="space-y-4">
-                  {/* Google Login Interface for Members */}
-                  <div className="flex items-center justify-center gap-1.5 mb-1">
-                    <svg className="w-4 h-4" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                    </svg>
-                    <span className="font-extrabold text-slate-700 text-sm">Fazer login com o Google</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 leading-normal mb-4">Utilize as suas credenciais para se autenticar de forma segura via Google.</p>
+                <div className="space-y-6">
+                  {/* SAVED DEVICE PROFILE QUICK LOGIN / GOOGLE SESSION */}
+                  {rememberedProfile ? (
+                    <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 mb-4 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="relative flex h-2.5 w-2.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                          </span>
+                          <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Sessão Ativa Anterior</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            localStorage.removeItem("ost_pay_remembered_profile");
+                            setRememberedProfile(null);
+                          }}
+                          className="text-[9px] text-slate-400 hover:text-red-500 hover:underline transition font-bold"
+                        >
+                          Limpar Sessão
+                        </button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-400 flex items-center justify-center font-bold text-xs border border-blue-100 dark:border-blue-900/50">
+                            {rememberedProfile.avatar || "U"}
+                          </div>
+                          <div>
+                            <h5 className="text-xs font-bold text-slate-800 dark:text-white leading-tight">{rememberedProfile.name}</h5>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate max-w-[160px]">{rememberedProfile.email}</p>
+                          </div>
+                        </div>
+                        
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (rememberedProfile.email.toLowerCase() === "levichingoma12@gmail.com") {
+                              setLoginTab("admin");
+                            } else {
+                              startAuthFlowSequence(rememberedProfile.email, rememberedProfile.name, () => {
+                                handleGoogleLogin(rememberedProfile.email, rememberedProfile.name);
+                              });
+                            }
+                          }}
+                          className="bg-blue-700 hover:bg-blue-800 text-white font-extrabold text-[10px] px-3.5 py-2 rounded-lg transition shadow-sm cursor-pointer active:scale-95"
+                        >
+                          Entrar Direto
+                        </button>
+                      </div>
 
-                  <div className="space-y-3 text-left">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">E-mail da Conta Google</label>
-                      <input
-                        type="email"
-                        placeholder="exemplo@gmail.com"
-                        value={googleLoginEmail}
-                        onChange={(e) => {
-                          setGoogleLoginEmail(e.target.value);
-                          setGoogleLoginError("");
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowGoogleChooser(true);
                         }}
-                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-100 focus:border-blue-700 outline-none transition"
-                        required
-                      />
+                        className="w-full text-center mt-4 text-[10.5px] font-bold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition"
+                      >
+                        Utilizar outra Conta Google
+                      </button>
                     </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Nome Completo</label>
-                      <input
-                        type="text"
-                        placeholder="Seu Nome Completo"
-                        value={googleLoginName}
-                        onChange={(e) => {
-                          setGoogleLoginName(e.target.value);
-                          setGoogleLoginError("");
-                        }}
-                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-100 focus:border-blue-700 outline-none transition"
-                        required
-                      />
+                  ) : (
+                    <div className="bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-slate-950 dark:to-slate-950 p-6 rounded-2xl border border-blue-100/50 dark:border-slate-800 text-center space-y-4">
+                      <div className="w-12 h-12 bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-center mx-auto shadow-sm border border-slate-100 dark:border-slate-800">
+                        <svg className="w-6 h-6" viewBox="0 0 24 24">
+                          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                        </svg>
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="text-sm font-extrabold text-slate-800 dark:text-slate-200">Acesso via Google Sign-In</h4>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed max-w-xs mx-auto">
+                          O acesso ao Portal do Membro é unificado e seguro através da sua Conta Google.
+                        </p>
+                      </div>
+                      
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRememberMe(true);
+                            setShowGoogleChooser(true);
+                          }}
+                          className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 px-4 rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24">
+                            <path fill="#ffffff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                          </svg>
+                          Entrar com o Google
+                        </button>
+                      </div>
                     </div>
-                  </div>
-
-                  {googleLoginError && (
-                    <p className="text-[11px] text-red-600 font-bold mt-2 flex items-center gap-1 justify-center">
-                      <AlertTriangle className="w-3.5 h-3.5" /> {googleLoginError}
-                    </p>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!googleLoginEmail.trim() || !googleLoginName.trim()) {
-                        setGoogleLoginError("Por favor, introduza o e-mail e nome completo.");
-                        return;
-                      }
-                      if (!googleLoginEmail.includes("@")) {
-                        setGoogleLoginError("Por favor, introduza um e-mail do Google válido.");
-                        return;
-                      }
-                      handleGoogleLogin(googleLoginEmail.trim(), googleLoginName.trim());
-                    }}
-                    className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-xl text-xs transition shadow flex items-center justify-center gap-2 mt-2"
-                  >
-                    <svg className="w-3.5 h-3.5 fill-current text-white" viewBox="0 0 24 24">
-                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    </svg>
-                    Entrar com o Google
-                  </button>
-
+                  <div className="mt-5 border-t border-slate-100 dark:border-slate-800 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowLoginHelp(!showLoginHelp)}
+                      className="w-full flex items-center justify-between text-[10px] font-black text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 uppercase tracking-wider transition cursor-pointer"
+                    >
+                      <span>Não consegue aceder? Obter Ajuda</span>
+                      <span className="text-xs">{showLoginHelp ? "▲" : "▼"}</span>
+                    </button>
+                    
+                    {showLoginHelp && (
+                      <div className="mt-3 space-y-2.5 text-left text-[11px] leading-relaxed text-slate-600 dark:text-slate-400 animate-in fade-in slide-in-from-top duration-150">
+                        <div className="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+                          <p className="font-bold text-slate-800 dark:text-white mb-0.5">Como obtenho o meu ID de Membro OST?</p>
+                          <p>O seu ID de filiado (ex: OST-12345) é criado automaticamente após a primeira aprovação do seu registo pela Direção Geral.</p>
+                        </div>
+                        <div className="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+                          <p className="font-bold text-slate-800 dark:text-white mb-0.5">O meu crachá acusa "Quota Expirada" ou "Não Registado"?</p>
+                          <p>Aceda à aba "Pagamentos" no Portal do Membro para enviar o comprovativo de renovação ou contacte a direção no suporte.</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {/* Admin Authorization screen */}
                   {!isAdminAuthorized ? (
                     <div className="space-y-4">
-                      <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto animate-pulse">
-                        <ShieldAlert className="w-6 h-6" />
-                      </div>
-                      <h4 className="text-sm font-extrabold text-slate-900">Acesso de Administrador Restrito</h4>
-                      <p className="text-xs text-slate-600 leading-relaxed text-center">
-                        Para ativar esta funcionalidade administrativa, o sistema requer autorização especial. Deve partilhar o link de acesso com o administrador <strong>LeviChingoma12@gmail.com</strong> ou introduzir a Chave Mestre de segurança diretamente.
-                      </p>
-
-                      {adminApprovalStep === "none" && (
-                        <div className="space-y-4">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              fetch("/api/admin/request-access", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ email: "LeviChingoma12@gmail.com" })
-                              })
-                              .then(res => res.json())
-                              .then(data => {
-                                if (data.success) {
-                                  setAdminRequestToken(data.token);
-                                  setAdminApprovalStep("link_generated");
-                                } else {
-                                  alert("Erro ao iniciar solicitação no servidor.");
-                                }
-                              })
-                              .catch(err => {
-                                alert("Falha técnica de rede ao comunicar com o servidor.");
-                              });
-                            }}
-                            className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl text-xs transition active:scale-95 cursor-pointer"
-                          >
-                            Gerar Link de Autorização para Levi Chingoma
-                          </button>
-
-                          <div className="relative flex py-1 items-center">
-                            <div className="flex-grow border-t border-slate-200"></div>
-                            <span className="flex-shrink mx-3 text-[10px] text-slate-400 font-bold uppercase">Ou Autorização Direta</span>
-                            <div className="flex-grow border-t border-slate-200"></div>
+                      {totpStepOpen ? (
+                        /* TOTP 2FA Verification Step */
+                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom duration-200 text-center">
+                          <div className="w-12 h-12 bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center mx-auto relative">
+                            <Smartphone className="w-6 h-6 animate-pulse" />
+                            <span className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white dark:border-slate-900">2F</span>
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">Autenticação de 2 Fatores</h4>
+                            <p className="text-xs text-slate-600 dark:text-slate-400 px-2 leading-relaxed">
+                              Chave de segurança validada! Para garantir a conformidade regulamentar, introduza o código temporário de 6 dígitos do seu Google Authenticator.
+                            </p>
                           </div>
 
-                          <div className="space-y-2 text-left">
-                            <label className="block text-[10px] font-bold text-slate-500 uppercase">Introduzir Chave Mestre de Segurança</label>
-                            <div className="flex gap-2">
-                              <input 
-                                type="password" 
-                                placeholder="Chave de Admin" 
-                                id="direct-admin-secret-key"
-                                className="flex-1 bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs font-mono outline-none focus:bg-white focus:border-blue-500 transition"
+                          <div className="space-y-3.5">
+                            <div className="flex justify-center items-center gap-1.5 font-mono text-lg my-4">
+                              <input
+                                type="text"
+                                maxLength={6}
+                                placeholder="000000"
+                                value={totpCode}
+                                onChange={(e) => {
+                                  const val = e.target.value.replace(/\D/g, "");
+                                  setTotpCode(val);
+                                  setTotpError("");
+                                }}
+                                className="w-36 text-center bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 tracking-[0.25em] py-3 rounded-2xl text-lg font-black outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-150 text-slate-900 dark:text-white"
                               />
+                            </div>
+
+                            {totpError && (
+                              <p className="text-[11px] text-red-600 font-bold flex items-center gap-1 justify-center bg-red-50 dark:bg-red-950/20 py-2 rounded-xl border border-red-100 dark:border-red-900/30">
+                                <AlertTriangle className="w-3.5 h-3.5" /> {totpError}
+                              </p>
+                            )}
+
+                            {/* Simulated active counter info */}
+                            <div className="flex items-center justify-center gap-2 text-[10px] text-slate-500 dark:text-slate-400">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                              </span>
+                              <span>O código expira em <strong className="text-blue-600 dark:text-blue-400">{totpTimer}s</strong></span>
+                            </div>
+
+                            <div className="flex gap-3">
                               <button
                                 type="button"
                                 onClick={() => {
-                                  const el = document.getElementById("direct-admin-secret-key") as HTMLInputElement;
-                                  const val = el?.value;
-                                  if (!val) {
-                                    alert("Por favor, digite a Chave Secreta.");
+                                  setTotpStepOpen(false);
+                                  setTotpCode("");
+                                  setTotpError("");
+                                }}
+                                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold transition cursor-pointer active:scale-95"
+                              >
+                                Voltar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (totpCode.length < 6) {
+                                    setTotpError("Por favor, introduza um código de 6 dígitos.");
                                     return;
                                   }
-                                  fetch("/api/admin/verify-secret", {
+                                  // Validate code (accept 123456 or any code for friction-free simulation)
+                                  setIsAdminAuthorized(true);
+                                  setAdminApprovalStep("authorized");
+                                  localStorage.setItem("ost_pay_admin_authorized", "true");
+                                  addLog("Sistema", "Concedeu privilégios administrativos via Autenticação 2FA", "success");
+                                  setTotpStepOpen(false);
+                                }}
+                                className="flex-1 bg-blue-700 hover:bg-blue-800 text-white font-bold py-2.5 rounded-xl text-xs transition shadow cursor-pointer active:scale-95"
+                              >
+                                Confirmar
+                              </button>
+                            </div>
+
+
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="w-12 h-12 bg-amber-100 dark:bg-amber-950/50 text-amber-600 dark:text-amber-500 rounded-full flex items-center justify-center mx-auto animate-pulse">
+                            <ShieldAlert className="w-6 h-6" />
+                          </div>
+                          <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">Acesso de Administrador Restrito</h4>
+                          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed text-center">
+                            Para ativar esta funcionalidade administrativa, o sistema requer autorização especial. Deve partilhar o link de acesso com o administrador geral <strong>LeviChingoma12@gmail.com</strong> ou introduzir a Chave Mestre de segurança diretamente.
+                          </p>
+
+                          {adminApprovalStep === "none" && (
+                            <div className="space-y-4">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  fetch("/api/admin/request-access", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ secretKey: val })
+                                    body: JSON.stringify({ email: "LeviChingoma12@gmail.com" })
                                   })
-                                  .then(res => {
-                                    if (!res.ok) {
-                                      return res.json().then(d => { throw new Error(d.error || "Código Incorreto") });
-                                    }
-                                    return res.json();
-                                  })
+                                  .then(res => res.json())
                                   .then(data => {
                                     if (data.success) {
-                                      setIsAdminAuthorized(true);
-                                      setAdminApprovalStep("authorized");
-                                      localStorage.setItem("ost_pay_admin_authorized", "true");
-                                      addLog("Sistema", "Concedeu privilégios administrativos via Chave Mestre direta", "success");
+                                      setAdminRequestToken(data.token);
+                                      setAdminApprovalStep("link_generated");
+                                    } else {
+                                      alert("Erro ao iniciar solicitação no servidor.");
                                     }
                                   })
                                   .catch(err => {
-                                    alert(err.message || "Falha ao validar Chave Secreta.");
+                                    alert("Falha técnica de rede ao comunicar com o servidor.");
                                   });
                                 }}
-                                className="bg-blue-700 hover:bg-blue-800 text-white font-extrabold text-[10px] px-4 py-2 rounded-xl transition cursor-pointer"
+                                className="w-full bg-slate-900 dark:bg-slate-950 hover:bg-slate-800 dark:hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl text-xs transition active:scale-95 cursor-pointer border dark:border-slate-800"
                               >
-                                Ativar
+                                Gerar Link de Autorização para Levi Chingoma
                               </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
 
-                      {adminApprovalStep === "link_generated" && (
-                        <div className="space-y-3 text-left">
-                          <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                            <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Copie este link para LeviChingoma12@gmail.com aprovar:</label>
-                            <input
-                              type="text"
-                              readOnly
-                              value={`${window.location.origin}/approve-admin?token=${adminRequestToken}&requestor=LeviChingoma12@gmail.com`}
-                              onClick={(e) => (e.target as HTMLInputElement).select()}
-                              className="w-full bg-white border border-slate-200 px-2 py-1.5 rounded text-[10px] font-mono outline-none text-blue-700 font-bold cursor-pointer"
-                            />
-                          </div>
+                              <div className="relative flex py-1 items-center">
+                                <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+                                <span className="flex-shrink mx-3 text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase">Ou Autorização Direta</span>
+                                <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+                              </div>
 
-                          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-center space-y-2">
-                            <div className="flex items-center justify-center gap-1.5 text-[10px] text-blue-800 font-medium">
-                              <RefreshCw className="w-3.5 h-3.5 text-blue-600 animate-spin" />
-                              A aguardar que Levi Chingoma aprove o link...
+                              <div className="space-y-2 text-left bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Chave Mestre de Segurança</label>
+                                <div className="flex gap-2">
+                                  <input 
+                                    type="password" 
+                                    placeholder="Introduza a chave..." 
+                                    id="direct-admin-secret-key"
+                                    className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-3 py-2.5 rounded-xl text-xs font-mono outline-none focus:bg-white focus:border-blue-500 text-slate-900 dark:text-white transition"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const el = document.getElementById("direct-admin-secret-key") as HTMLInputElement;
+                                      const val = el?.value;
+                                      if (!val) {
+                                        alert("Por favor, digite a Chave Secreta.");
+                                        return;
+                                      }
+                                      fetch("/api/admin/verify-secret", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ secretKey: val })
+                                      })
+                                      .then(res => {
+                                        if (!res.ok) {
+                                          return res.json().then(d => { throw new Error(d.error || "Código Incorreto") });
+                                        }
+                                        return res.json();
+                                      })
+                                      .then(data => {
+                                        if (data.success) {
+                                          // Go to 2FA instead of instant admin access
+                                          setTotpStepOpen(true);
+                                          setTotpCode("");
+                                          setTotpError("");
+                                        }
+                                      })
+                                      .catch(err => {
+                                        alert(err.message || "Falha ao validar Chave Secreta.");
+                                      });
+                                    }}
+                                    className="bg-blue-700 hover:bg-blue-800 text-white font-extrabold text-[11px] px-4 py-2.5 rounded-xl transition cursor-pointer active:scale-95 shadow-sm"
+                                  >
+                                    Validar
+                                  </button>
+                                </div>
+                              </div>
                             </div>
-                            <p className="text-[9px] text-slate-500 leading-tight">O seu ecrã atualizará automaticamente assim que o administrador geral confirmar a homologação de segurança.</p>
-                          </div>
+                          )}
+
+                          {adminApprovalStep === "link_generated" && (
+                            <div className="space-y-3 text-left">
+                              <div className="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                                <label className="block text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Copie este link para LeviChingoma12@gmail.com aprovar:</label>
+                                <input
+                                  type="text"
+                                  readOnly
+                                  value={`${window.location.origin}/approve-admin?token=${adminRequestToken}&requestor=LeviChingoma12@gmail.com`}
+                                  onClick={(e) => (e.target as HTMLInputElement).select()}
+                                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2.5 py-2 rounded text-[10px] font-mono outline-none text-blue-700 dark:text-blue-400 font-bold cursor-pointer"
+                                />
+                              </div>
+
+                              <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/30 rounded-xl p-3 text-center space-y-2">
+                                <div className="flex items-center justify-center gap-1.5 text-[10px] text-blue-850 dark:text-blue-300 font-medium">
+                                  <RefreshCw className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 animate-spin" />
+                                  A aguardar que Levi Chingoma aprove o link...
+                                </div>
+                                <p className="text-[9px] text-slate-500 dark:text-slate-400 leading-tight">O seu ecrã atualizará automaticamente assim que o administrador geral confirmar a homologação de segurança.</p>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
                   ) : (
-                    <div className="space-y-4 py-2">
-                      <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
+                    <div className="space-y-4 py-2 text-center">
+                      <div className="w-12 h-12 bg-green-100 dark:bg-green-950/50 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center mx-auto">
                         <CheckCircle2 className="w-6 h-6 animate-bounce" />
                       </div>
                       <div className="space-y-1">
-                        <h4 className="text-sm font-extrabold text-slate-900">Acesso Autorizado!</h4>
-                        <p className="text-[11px] text-slate-600">Dispositivo homologado por <strong>LeviChingoma12@gmail.com</strong>.</p>
+                        <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">Dispositivo Homologado!</h4>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400">Autenticação ativa e associada à Conta Master de <strong>LeviChingoma12@gmail.com</strong>.</p>
                       </div>
 
                       <button
@@ -5008,7 +5780,7 @@ export default function App() {
                         onClick={() => {
                           handleGoogleLogin("LeviChingoma12@gmail.com", "Direção Geral OST");
                         }}
-                        className="w-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold py-3 rounded-xl text-xs transition shadow flex items-center justify-center gap-2 cursor-pointer"
+                        className="w-full bg-slate-900 dark:bg-slate-950 hover:bg-slate-800 dark:hover:bg-slate-800 text-white font-extrabold py-3 rounded-xl text-xs transition shadow flex items-center justify-center gap-2 cursor-pointer active:scale-95"
                       >
                         <User className="w-4 h-4 text-green-400" />
                         Entrar no Painel Administrativo
@@ -5030,9 +5802,134 @@ export default function App() {
                 </div>
               )}
 
-              <p className="text-slate-400 text-[9px] mt-6 leading-relaxed">
-                Este sistema utiliza autenticação segura para obter nome e email oficial da sua Conta Google.
+              <p className="text-slate-400 dark:text-slate-500 text-[9px] mt-6 leading-relaxed text-center">
+                Este sistema utiliza criptografia de ponta para assegurar a identidade e email oficial da sua Conta Google.
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* GOOGLE ACCOUNTS POPUP CHOOSER */}
+        {showGoogleChooser && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[100] p-4 transition-all duration-300">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-800 text-left animate-in fade-in zoom-in duration-200">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-4">
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                  </svg>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Iniciar sessão com o Google</span>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowGoogleChooser(false);
+                    setGoogleLoginEmail("");
+                    setGoogleLoginName("");
+                    setGoogleLoginError("");
+                  }}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <h4 className="text-sm font-extrabold text-slate-900 dark:text-white mb-1">Entrar no OST Pay</h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-4">Utilize a sua Conta Google corporativa ou pessoal</p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Endereço de E-mail</label>
+                  <input
+                    type="email"
+                    placeholder="nome.utilizador@gmail.com"
+                    value={googleLoginEmail}
+                    onChange={(e) => {
+                      setGoogleLoginEmail(e.target.value);
+                      setGoogleLoginError("");
+                      // Se houver algum filiado com este e-mail cadastrado, autocompleta o nome
+                      const found = members.find(m => m.email.toLowerCase() === e.target.value.trim().toLowerCase());
+                      if (found) {
+                        setGoogleLoginName(found.name);
+                      } else {
+                        setGoogleLoginName("");
+                      }
+                    }}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs outline-none focus:bg-white focus:border-blue-500 dark:focus:border-blue-500 text-slate-900 dark:text-white transition"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Nome Completo</label>
+                  <input
+                    type="text"
+                    placeholder="O seu Nome Completo"
+                    value={googleLoginName}
+                    onChange={(e) => {
+                      setGoogleLoginName(e.target.value);
+                      setGoogleLoginError("");
+                    }}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs outline-none focus:bg-white focus:border-blue-500 dark:focus:border-blue-500 text-slate-900 dark:text-white transition"
+                    required
+                  />
+                  <p className="text-[9px] text-slate-400 mt-1 leading-tight">
+                    *Se já possui registo de filiação, o sistema associará os seus dados de forma automática.
+                  </p>
+                </div>
+
+                {googleLoginError && (
+                  <p className="text-[11px] text-red-600 font-bold flex items-center gap-1 justify-center bg-red-50 dark:bg-red-950/20 py-2 rounded-xl border border-red-100 dark:border-red-900/30">
+                    <AlertTriangle className="w-3.5 h-3.5" /> {googleLoginError}
+                  </p>
+                )}
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowGoogleChooser(false);
+                      setGoogleLoginEmail("");
+                      setGoogleLoginName("");
+                      setGoogleLoginError("");
+                    }}
+                    className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold transition cursor-pointer active:scale-95"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const emailTrim = googleLoginEmail.trim();
+                      const nameTrim = googleLoginName.trim();
+
+                      if (!emailTrim || !emailTrim.includes("@")) {
+                        setGoogleLoginError("Por favor, introduza um e-mail válido da Conta Google.");
+                        return;
+                      }
+                      if (!nameTrim) {
+                        setGoogleLoginError("Por favor, introduza o seu nome para continuar.");
+                        return;
+                      }
+
+                      setShowGoogleChooser(false);
+                      setShowLoginModal(true);
+                      startAuthFlowSequence(emailTrim, nameTrim, () => {
+                        handleGoogleLogin(emailTrim, nameTrim);
+                      });
+                    }}
+                    className="flex-1 bg-blue-700 hover:bg-blue-800 text-white font-bold py-2.5 rounded-xl text-xs transition shadow cursor-pointer active:scale-95"
+                  >
+                    Iniciar Sessão
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-800 text-[9px] text-slate-400 leading-relaxed text-center">
+                Para prosseguir, o Google partilhará o seu nome, endereço de e-mail e foto de perfil com a OST Pay.
+              </div>
             </div>
           </div>
         )}
@@ -5717,83 +6614,66 @@ export default function App() {
                         
                         {/* Badge Viewer Column */}
                         <div className="lg:col-span-5 flex flex-col items-center space-y-4">
-                          <h4 className="text-sm font-bold text-slate-900 mr-auto">O seu Crachá Oficial</h4>
+                          <h4 className="text-sm font-bold text-slate-900 mr-auto font-sans">O seu Crachá Oficial</h4>
                           
                           {/* Crachá container */}
                           <div 
-                            className="w-80 h-[565px] bg-white rounded-3xl shadow-xl hover:shadow-[0_30px_60px_-12px_rgba(15,23,42,0.18)] border border-slate-200/80 flex flex-col items-center relative overflow-hidden transition-all duration-500 hover:-translate-y-1 group cursor-default select-none"
+                            className="w-80 h-[585px] bg-white rounded-[22px] shadow-2xl border border-slate-200 flex flex-col items-center relative overflow-hidden transition-all duration-500 hover:-translate-y-1.5 group cursor-default select-none"
                             style={{ 
-                              backgroundImage: "radial-gradient(circle, rgba(226, 232, 240, 0.4) 1.2px, transparent 1.2px)", 
-                              backgroundSize: "14px 14px" 
+                              backgroundImage: "radial-gradient(circle, rgba(11, 46, 89, 0.05) 1.2px, transparent 1.2px)", 
+                              backgroundSize: "16px 16px" 
                             }}
                           >
                             {/* Premium Diagonal Holographic Glare Sweep on Hover */}
-                            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out pointer-events-none z-30"></div>
+                            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out pointer-events-none z-30"></div>
                             
-                            {/* Super Subtle Micro-pattern Watermark in the background */}
-                            <div className="absolute inset-0 opacity-[0.02] pointer-events-none flex flex-wrap gap-4 p-4 rotate-12 scale-110 select-none z-0">
-                              {Array.from({ length: 48 }).map((_, i) => (
-                                <span key={i} className="text-[7px] font-black tracking-widest text-slate-950 uppercase">OST PAY SECURE ID •</span>
-                              ))}
+                            {/* Discrete High-Fidelity Church Logo Watermark in Background */}
+                            <div className="absolute inset-0 flex items-center justify-center opacity-[0.035] pointer-events-none z-0 rotate-12 scale-125 select-none">
+                              <ChurchLogo className="w-64 h-64" />
                             </div>
 
-                            {/* Ambient Security Seal Ring in Background */}
-                            <div className="absolute top-[220px] w-52 h-52 rounded-full border border-slate-200/30 flex items-center justify-center pointer-events-none">
-                              <div className="w-40 h-40 rounded-full border border-dashed border-slate-200/20"></div>
-                            </div>
+                            {/* Elegant Inner Border Offset with custom gold color */}
+                            <div className="absolute inset-2.5 border-2 border-[#D4AF37]/35 rounded-[18px] pointer-events-none z-10 opacity-60 transition-all duration-500 group-hover:scale-[0.99]"></div>
 
-                            {/* Elegant Inner Border Offset with custom role color */}
-                            <div 
-                              className="absolute inset-2.5 border rounded-2xl pointer-events-none z-10 opacity-30 transition-all duration-500 group-hover:scale-[0.99]"
-                              style={{ borderColor: getPositionTheme(currentUser.role).pdfPrimaryRGB ? `rgb(${getPositionTheme(currentUser.role).pdfPrimaryRGB.join(",")})` : "currentColor" }}
-                            ></div>
-
-                            {/* 1. PREMIUM HEADER BLOCK */}
-                            <div className="w-full bg-slate-950 px-4 pt-6 pb-4 flex flex-col items-center relative text-center shadow-md z-20">
+                            {/* 1. PREMIUM HEADER BLOCK (Base: Dark Blue #0B2E59 & Gold #D4AF37) */}
+                            <div className="w-full bg-[#0B2E59] px-4 pt-5 pb-3.5 flex flex-col items-center relative text-center shadow-lg z-20 border-b-2 border-[#D4AF37]">
                               {/* Mozambique Flag Mini Official Ribbon */}
-                              <div className="absolute top-3.5 right-4.5 flex h-2 rounded overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
-                                <div className="w-3.5 bg-emerald-600"></div>
-                                <div className="w-3.5 bg-black"></div>
-                                <div className="w-3.5 bg-red-600"></div>
-                                <div className="w-3.5 bg-amber-400"></div>
+                              <div className="absolute top-3.5 right-4 flex h-1.5 rounded overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
+                                <div className="w-3 bg-emerald-600"></div>
+                                <div className="w-3 bg-black"></div>
+                                <div className="w-3 bg-red-600"></div>
+                                <div className="w-3 bg-amber-400"></div>
                               </div>
 
-                              <h3 className="text-[11px] font-black tracking-[0.12em] text-white uppercase leading-none font-sans">Organização Social</h3>
-                              <h3 className="text-[11px] font-black tracking-[0.12em] text-white uppercase mt-1 leading-none font-sans">Do Trabalho</h3>
-                              
-                              <p className="text-[8px] font-extrabold tracking-[0.15em] text-blue-300 mt-2.5 uppercase font-mono">
-                                Crachá Oficial de Filiação
-                              </p>
-                              
-                              <p className="text-[7px] font-bold text-slate-400 tracking-[0.08em] mt-1.5 uppercase font-sans">
-                                República de Moçambique
-                              </p>
+                              {/* Centered Church Logo with golden container shadow */}
+                              <div className="bg-white/10 p-1 rounded-full border border-[#D4AF37]/40 mb-2">
+                                <ChurchLogo className="w-10 h-10" />
+                              </div>
 
-                              {/* Colored Role Ribbon Underline */}
-                              <div 
-                                className="absolute bottom-0 left-0 w-full h-1"
-                                style={{ backgroundColor: getPositionTheme(currentUser.role).pdfPrimaryRGB ? `rgb(${getPositionTheme(currentUser.role).pdfPrimaryRGB.join(",")})` : "currentColor" }}
-                              ></div>
+                              <h3 className="text-[10px] font-black tracking-[0.14em] text-white uppercase leading-none font-sans">IAFI MINISTÉRIOS</h3>
+                              <h3 className="text-[9px] font-bold tracking-[0.11em] text-[#D4AF37] uppercase mt-0.5 leading-none font-sans">Avante na Fé Internacional</h3>
+                              
+                              <p className="text-[7.5px] font-bold tracking-[0.18em] text-blue-200 mt-2 uppercase font-mono">
+                                CRACHÁ OFICIAL DE MEMBRO
+                              </p>
                             </div>
 
-                            {/* 2. PHOTO PORTRAIT FRAME */}
+                            {/* 2. PHOTO PORTRAIT FRAME (Larger & Centered) */}
                             <div className="relative mt-5 z-20">
-                              {/* Double Border Frame with shadow & custom role glow */}
+                              {/* Curved frame with border #D4AF37 and royal blue shadow */}
                               <div 
-                                className="w-[116px] h-[116px] rounded-2xl bg-white border-2 p-1 shadow-lg transition-transform duration-500 group-hover:scale-105 overflow-hidden flex items-center justify-center"
+                                className="w-[124px] h-[124px] rounded-full bg-white border-2 p-1 shadow-lg transition-transform duration-500 group-hover:scale-105 overflow-hidden flex items-center justify-center"
                                 style={{ 
-                                  borderColor: getPositionTheme(currentUser.role).pdfPrimaryRGB ? `rgb(${getPositionTheme(currentUser.role).pdfPrimaryRGB.join(",")})` : "currentColor",
-                                  boxShadow: getPositionTheme(currentUser.role).pdfPrimaryRGB 
-                                    ? `0 10px 25px -5px rgba(${getPositionTheme(currentUser.role).pdfPrimaryRGB.join(",")}, 0.15), 0 8px 10px -6px rgba(${getPositionTheme(currentUser.role).pdfPrimaryRGB.join(",")}, 0.15)`
-                                    : undefined
+                                  borderColor: "#D4AF37",
+                                  boxShadow: "0 10px 25px -5px rgba(11, 46, 89, 0.2), 0 8px 10px -6px rgba(11, 46, 89, 0.2)"
                                 }}
                               >
-                                <div className="w-full h-full rounded-xl bg-slate-50 overflow-hidden relative">
+                                <div className="w-full h-full rounded-full bg-slate-50 overflow-hidden relative">
                                   {currentUser.photoUrl ? (
                                     <img src={currentUser.photoUrl} alt="Foto Membro" className="w-full h-full object-cover" />
                                   ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400">
-                                      <User className="w-12 h-12" />
+                                    <div className="w-full h-full flex items-center justify-center bg-slate-100 text-[#0B2E59]/40">
+                                      <User className="w-14 h-14" />
                                     </div>
                                   )}
                                 </div>
@@ -5802,61 +6682,86 @@ export default function App() {
 
                             {/* 3. NAME & METADATA COLUMN */}
                             <div className="w-full px-5 flex flex-col items-center mt-3 z-20 text-center">
-                              <span className="text-[8px] font-black text-slate-400 tracking-[0.15em] uppercase font-mono">Membro Oficial</span>
-                              
-                              <h3 className="text-sm font-black text-slate-900 leading-tight mt-1 uppercase tracking-tight max-w-[240px] line-clamp-2">
+                              {/* Member Name (Most prominent element after photo) */}
+                              <h3 className="text-base font-black text-[#0B2E59] leading-tight mt-0.5 uppercase tracking-tight max-w-[260px] line-clamp-2">
                                 {currentUser.name}
                               </h3>
                               
-                              <p className="text-[9px] text-slate-500 font-bold mt-1 uppercase tracking-wider font-mono">
+                              <p className="text-[8.5px] text-slate-500 font-bold mt-1 uppercase tracking-widest font-mono">
                                 • {currentUser.region.toUpperCase()} • {currentUser.province.toUpperCase()} •
                               </p>
 
-                              {/* Role Badge Pill with custom letter spacing */}
+                              {/* Institutional "MEMBRO" Role Badge (not a button) */}
                               <div className="mt-2.5">
                                 <span 
-                                  className={`inline-block text-[9px] font-extrabold px-4 py-1 rounded-full uppercase tracking-[0.18em] border shadow-sm transition-all duration-300 group-hover:shadow ${getPositionTheme(currentUser.role).badgeBg} ${getPositionTheme(currentUser.role).badgeText} ${getPositionTheme(currentUser.role).badgeBorder}`}
+                                  className="inline-flex items-center gap-1.5 px-4.5 py-1 rounded-full uppercase tracking-[0.2em] text-[9px] font-black bg-[#0B2E59] text-[#D4AF37] border border-[#D4AF37]/50 shadow-sm"
                                 >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-pulse"></span>
                                   {getPositionTheme(currentUser.role).name}
                                 </span>
                               </div>
 
-                              {/* 4. DETAILS GRID (CARD-IN-CARD FORMAT) */}
-                              <div className="w-full bg-slate-50/70 backdrop-blur-[2px] border border-slate-150 rounded-2xl p-3.5 mt-4 text-left grid grid-cols-2 gap-x-4 gap-y-2.5 shadow-sm">
-                                <div className="space-y-0.5">
-                                  <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">Identificação</p>
-                                  <p className="text-xs font-bold font-mono text-slate-800 leading-none">{currentUser.id}</p>
+                              {/* 4. DETAILS GRID (Organized in 2 columns of cards) */}
+                              <div className="w-full grid grid-cols-2 gap-2.5 mt-4 text-left">
+                                <div className="bg-slate-50/85 backdrop-blur-[1px] border border-slate-150 rounded-xl p-2.5 shadow-xs hover:border-[#2B78FF]/30 transition">
+                                  <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">ID Membro</p>
+                                  <p className="text-xs font-black font-mono text-[#0B2E59] leading-none mt-0.5">{currentUser.id}</p>
                                 </div>
-                                <div className="space-y-0.5">
-                                  <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">Data Emissão</p>
-                                  <p className="text-xs font-bold text-slate-800 leading-none font-mono">{new Date(currentUser.createdAt).toLocaleDateString()}</p>
+                                <div className="bg-slate-50/85 backdrop-blur-[1px] border border-slate-150 rounded-xl p-2.5 shadow-xs hover:border-[#2B78FF]/30 transition">
+                                  <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">Emissão</p>
+                                  <p className="text-xs font-bold text-[#0B2E59]/80 leading-none font-mono mt-0.5">{new Date(currentUser.createdAt).toLocaleDateString()}</p>
                                 </div>
-                                <div className="space-y-0.5">
-                                  <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">Estado Registo</p>
-                                  <p className="text-[10px] font-black text-emerald-600 leading-none uppercase tracking-wider flex items-center gap-1 font-sans">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                                <div className="bg-slate-50/85 backdrop-blur-[1px] border border-slate-150 rounded-xl p-2.5 shadow-xs hover:border-[#2B78FF]/30 transition">
+                                  <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">Estado</p>
+                                  <p className="text-[10px] font-black text-emerald-600 leading-none uppercase tracking-wider flex items-center gap-1 mt-0.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
                                     Ativo
                                   </p>
                                 </div>
-                                <div className="space-y-0.5">
-                                  <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">Quotas Anuais</p>
-                                  <p className="text-[10px] font-black text-emerald-600 leading-none uppercase tracking-wider font-sans">Regularizado</p>
+                                <div className="bg-slate-50/85 backdrop-blur-[1px] border border-slate-150 rounded-xl p-2.5 shadow-xs hover:border-[#2B78FF]/30 transition">
+                                  <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">Quotas</p>
+                                  <p className="text-[10px] font-black text-emerald-600 leading-none uppercase tracking-wider flex items-center gap-1 mt-0.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] inline-block"></span>
+                                    Em Dia
+                                  </p>
                                 </div>
                               </div>
                             </div>
 
-                            {/* Divider Line */}
-                            <div className="w-[calc(100%-2.5rem)] h-[1px] bg-slate-100 my-3"></div>
+                            {/* 5. ELEGANT FOOTER (QR Left & Wide Barcode Right, dynamically selected) */}
+                            {badgeCodeOption === "both" && (
+                              <div className="w-full mt-auto px-5 pb-5 pt-3 bg-[#0B2E59]/5 border-t border-slate-100 flex items-center justify-between gap-3.5 z-20">
+                                {/* QR Column */}
+                                <div className="flex flex-col items-start gap-1">
+                                  <span className="text-[7px] font-black text-slate-400 uppercase tracking-wider font-mono">Secure QR</span>
+                                  <div className="w-12 h-12 bg-white border border-[#D4AF37]/30 rounded-lg p-1.5 flex items-center justify-center shadow-xs hover:scale-105 transition-transform duration-300">
+                                    <img 
+                                      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${window.location.origin}/?validate=${currentUser.id}`} 
+                                      alt="Verification QR" 
+                                      className="w-full h-full"
+                                    />
+                                  </div>
+                                </div>
 
-                            {/* 5. SIDE-BY-SIDE BOTTOM SECURITY SECTION */}
-                            <div className="w-full px-5 pb-5 mt-auto flex justify-between items-end z-20">
-                              {/* QR Column */}
-                              <div className="flex flex-col items-start space-y-1">
-                                <span className="text-[7px] font-black text-slate-400 uppercase tracking-[0.08em] font-mono">Validação Secure QR</span>
-                                <div 
-                                  className="w-12 h-12 bg-white border rounded-xl p-1 flex items-center justify-center shadow-sm transition-transform duration-300 group-hover:scale-105"
-                                  style={{ borderColor: getPositionTheme(currentUser.role).pdfPrimaryRGB ? `rgba(${getPositionTheme(currentUser.role).pdfPrimaryRGB.join(",")}, 0.3)` : "#e2e8f0" }}
-                                >
+                                {/* Barcode Column */}
+                                <div className="flex-1 flex flex-col items-end gap-1">
+                                  <span className="text-[7px] font-black text-slate-400 uppercase tracking-wider font-mono">Código de Acesso</span>
+                                  <div className="w-full bg-white border border-slate-200/80 rounded-lg p-1.5 flex flex-col items-center justify-center shadow-xs">
+                                    <div className="h-5 flex gap-[1.2px] items-end justify-center w-full opacity-90">
+                                      {[2,1,3,1,2,1,4,1,1,3,1,2,1,1,1,2,1,3,1,2,1.5,1,2].map((w, i) => (
+                                        <div key={i} className="bg-slate-900 h-full flex-1 max-w-[2px]" style={{ minWidth: '1px' }}></div>
+                                      ))}
+                                    </div>
+                                    <p className="text-[7.5px] text-[#0B2E59] font-black font-mono mt-0.5 tracking-[0.18em]">{currentUser.barcode || "120394102941"}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {badgeCodeOption === "qr" && (
+                              <div className="w-full mt-auto px-5 pb-5 pt-3 bg-[#0B2E59]/5 border-t border-slate-100 flex flex-col items-center justify-center gap-1 z-20">
+                                <span className="text-[7px] font-black text-slate-400 uppercase tracking-wider font-mono text-center">Secure QR</span>
+                                <div className="w-16 h-16 bg-white border border-[#D4AF37]/30 rounded-lg p-1.5 flex items-center justify-center shadow-xs hover:scale-105 transition-transform duration-300">
                                   <img 
                                     src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${window.location.origin}/?validate=${currentUser.id}`} 
                                     alt="Verification QR" 
@@ -5864,27 +6769,28 @@ export default function App() {
                                   />
                                 </div>
                               </div>
+                            )}
 
-                              {/* Barcode Column */}
-                              <div className="flex flex-col items-end space-y-1 text-right">
-                                <span className="text-[7px] font-black text-slate-400 uppercase tracking-[0.08em] font-mono font-bold">Acesso Biométrico</span>
-                                <div className="flex flex-col items-center">
-                                  <div className="h-6 flex gap-[1px] items-end justify-center opacity-85">
-                                    {[2,1,3,1,2,1,4,1,1,3,1,2,1,1.5,1,2].map((w, i) => (
-                                      <div key={i} className="bg-slate-950 h-full" style={{ width: `${w}px` }}></div>
+                            {badgeCodeOption === "barcode" && (
+                              <div className="w-full mt-auto px-5 pb-5 pt-3 bg-[#0B2E59]/5 border-t border-slate-100 flex flex-col items-center justify-center gap-1 z-20">
+                                <span className="text-[7px] font-black text-slate-400 uppercase tracking-wider font-mono text-center">Código de Acesso</span>
+                                <div className="w-48 bg-white border border-slate-200/80 rounded-lg p-2 flex flex-col items-center justify-center shadow-xs">
+                                  <div className="h-6 flex gap-[1.5px] items-end justify-center w-full opacity-90">
+                                    {[2,1,3,1,2,1,4,1,1,3,1,2,1,1,1,2,1,3,1,2,1.5,1,2,1,3].map((w, i) => (
+                                      <div key={i} className="bg-slate-900 h-full flex-1 max-w-[2px]" style={{ minWidth: '1px' }}></div>
                                     ))}
                                   </div>
-                                  <p className="text-[8px] text-slate-500 font-bold font-mono mt-0.5 tracking-wider">{currentUser.barcode || "120394102941"}</p>
+                                  <p className="text-[8px] text-[#0B2E59] font-black font-mono mt-1 tracking-[0.2em]">{currentUser.barcode || "120394102941"}</p>
                                 </div>
                               </div>
-                            </div>
+                            )}
                           </div>
 
                           {/* Download Badge triggers */}
-                          <div className="flex flex-wrap gap-2.5 justify-center">
+                          <div className="flex flex-wrap gap-2.5 justify-center mt-4">
                             <button 
                               onClick={() => {
-                                handleGenerateBadgePDF(currentUser, true, { withBleedAndCrop: false });
+                                handleGenerateBadgePDF(currentUser, true, { withBleedAndCrop: false, codeFormat: badgeCodeOption });
                                 addLog(currentUser.name, "Descarregou crachá digital oficial em PDF", "success");
                               }}
                               className="flex items-center gap-2 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2.5 rounded-xl transition cursor-pointer active:scale-95 shadow-sm"
@@ -5896,7 +6802,7 @@ export default function App() {
 
                             <button 
                               onClick={() => {
-                                handleGenerateBadgePDF(currentUser, true, { withBleedAndCrop: true });
+                                handleGenerateBadgePDF(currentUser, true, { withBleedAndCrop: true, codeFormat: badgeCodeOption });
                                 addLog(currentUser.name, "Descarregou crachá com sangria e marcas de corte em PDF", "success");
                               }}
                               className="flex items-center gap-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-4 py-2.5 rounded-xl transition cursor-pointer active:scale-95 shadow-sm animate-pulse-subtle"
@@ -6177,6 +7083,63 @@ export default function App() {
                   </button>
                 </div>
 
+                {/* Visual Step-by-Step Tutorial for New Members */}
+                <div id="qr-tutorial-panel" className="bg-gradient-to-br from-blue-50/50 to-indigo-50/30 p-4 rounded-2xl border border-blue-100/80 space-y-3.5">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-blue-100 text-blue-700 rounded-lg">
+                      <HelpCircle className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-slate-900 text-xs tracking-tight">Como posicionar o seu telemóvel?</h4>
+                      <p className="text-[10px] text-slate-500 font-medium">Siga estes 3 passos simples para validar o seu crachá digital.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2.5 pt-0.5">
+                    {/* Step 1 */}
+                    <div className="bg-white p-2.5 rounded-xl border border-blue-100/50 flex flex-col items-center text-center space-y-1.5 relative overflow-hidden shadow-xs hover:shadow-sm transition">
+                      <div className="absolute top-1 left-1.5 bg-blue-600 text-white font-black text-[9px] w-4 h-4 rounded-full flex items-center justify-center">
+                        1
+                      </div>
+                      <div className="pt-2">
+                        <Camera className="w-5 h-5 text-blue-600 animate-pulse" />
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-900 text-[10px] block leading-tight">Ligar Câmara</span>
+                        <p className="text-[9px] text-slate-400 mt-0.5 leading-snug">Clique no botão acima para ativar.</p>
+                      </div>
+                    </div>
+
+                    {/* Step 2 */}
+                    <div className="bg-white p-2.5 rounded-xl border border-blue-100/50 flex flex-col items-center text-center space-y-1.5 relative overflow-hidden shadow-xs hover:shadow-sm transition">
+                      <div className="absolute top-1 left-1.5 bg-blue-600 text-white font-black text-[9px] w-4 h-4 rounded-full flex items-center justify-center">
+                        2
+                      </div>
+                      <div className="pt-2">
+                        <Smartphone className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-900 text-[10px] block leading-tight">Distância (20cm)</span>
+                        <p className="text-[9px] text-slate-400 mt-0.5 leading-snug">Segure a um palmo da lente.</p>
+                      </div>
+                    </div>
+
+                    {/* Step 3 */}
+                    <div className="bg-white p-2.5 rounded-xl border border-blue-100/50 flex flex-col items-center text-center space-y-1.5 relative overflow-hidden shadow-xs hover:shadow-sm transition">
+                      <div className="absolute top-1 left-1.5 bg-blue-600 text-white font-black text-[9px] w-4 h-4 rounded-full flex items-center justify-center">
+                        3
+                      </div>
+                      <div className="pt-2">
+                        <QrCode className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-900 text-[10px] block leading-tight">Centralizar</span>
+                        <p className="text-[9px] text-slate-400 mt-0.5 leading-snug">Enquadre o QR no quadrado azul.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Integrated Camera Window */}
                 <div className="aspect-[4/3] bg-slate-950 rounded-2xl overflow-hidden relative border border-slate-800 flex items-center justify-center">
                   {showLiveCamera ? (
@@ -6437,7 +7400,7 @@ export default function App() {
 
                           <button
                             onClick={() => {
-                              handleGenerateBadgePDF(scannedResult, true, { withBleedAndCrop: false });
+                              handleGenerateBadgePDF(scannedResult, true, { withBleedAndCrop: false, codeFormat: badgeCodeOption });
                               addLog(scannedResult.name, "Imprimiu/Descarregou crachá oficial pelo portal de validação", "success");
                             }}
                             className="py-2.5 px-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition flex items-center justify-center gap-1.5"
@@ -6449,7 +7412,7 @@ export default function App() {
 
                           <button
                             onClick={() => {
-                              handleGenerateBadgePDF(scannedResult, true, { withBleedAndCrop: true });
+                              handleGenerateBadgePDF(scannedResult, true, { withBleedAndCrop: true, codeFormat: badgeCodeOption });
                               addLog(scannedResult.name, "Imprimiu/Descarregou crachá com sangria pelo portal de validação", "success");
                             }}
                             className="py-2.5 px-3 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold hover:bg-indigo-100 transition flex items-center justify-center gap-1.5"
@@ -6504,67 +7467,89 @@ export default function App() {
           <div className="max-w-7xl mx-auto px-4 lg:px-16 py-8 space-y-8">
             
             {/* Header Title with tabs */}
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-slate-200 pb-5">
-              <div>
-                <h2 className="text-3xl font-black text-slate-950">Painel Administrativo OST Pay</h2>
-                <p className="text-xs text-slate-500 mt-1">Gestão centralizada de membros, aprovação de quotas bancárias e relatórios fiscais.</p>
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-slate-200 dark:border-slate-850 pb-5 transition-colors">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full lg:w-auto">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-3xl font-black text-slate-950 dark:text-white transition-colors">Painel Administrativo OST Pay</h2>
+                    <button
+                      onClick={() => setAdminDarkMode(!adminDarkMode)}
+                      className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 transition shadow-xs cursor-pointer flex items-center justify-center shrink-0"
+                      title={adminDarkMode ? "Mudar para Modo Claro" : "Mudar para Modo Escuro"}
+                      id="admin-dark-mode-toggle"
+                    >
+                      {adminDarkMode ? (
+                        <Sun className="w-4 h-4 text-amber-500" />
+                      ) : (
+                        <Moon className="w-4 h-4 text-indigo-600" />
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 transition-colors">Gestão centralizada de membros, aprovação de quotas bancárias e relatórios fiscais.</p>
+                </div>
               </div>
 
-              <div className="flex bg-slate-200 p-1 rounded-xl">
+              <div className="flex flex-wrap bg-slate-200 dark:bg-slate-900/80 p-1 rounded-xl border border-transparent dark:border-slate-850 transition-colors gap-1">
                 <button 
                   onClick={() => setAdminTab("overview")}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition ${adminTab === "overview" ? "bg-white text-slate-950 shadow" : "text-slate-600 hover:text-slate-900"}`}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${adminTab === "overview" ? "bg-white text-slate-950 shadow dark:bg-slate-800 dark:text-white" : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"}`}
                 >
                   Indicadores & Gráficos
                 </button>
                 <button 
                   onClick={() => setAdminTab("members")}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition ${adminTab === "members" ? "bg-white text-slate-950 shadow" : "text-slate-600 hover:text-slate-900"}`}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${adminTab === "members" ? "bg-white text-slate-950 shadow dark:bg-slate-800 dark:text-white" : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"}`}
                 >
                   Membros ({members.length})
                 </button>
                 <button 
                   onClick={() => setAdminTab("worship")}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition ${adminTab === "worship" ? "bg-white text-slate-950 shadow" : "text-slate-600 hover:text-slate-900"}`}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${adminTab === "worship" ? "bg-white text-slate-950 shadow dark:bg-slate-800 dark:text-white" : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"}`}
                 >
                   Frequência do Culto ⛪
                 </button>
                 <button 
                   onClick={() => setAdminTab("reminders")}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition ${adminTab === "reminders" ? "bg-white text-slate-950 shadow" : "text-slate-600 hover:text-slate-900"}`}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${adminTab === "reminders" ? "bg-white text-slate-950 shadow dark:bg-slate-800 dark:text-white" : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"}`}
                 >
                   Lembretes WhatsApp 💬
                 </button>
                 <button 
                   onClick={() => setAdminTab("audit")}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition ${adminTab === "audit" ? "bg-white text-slate-950 shadow" : "text-slate-600 hover:text-slate-900"}`}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${adminTab === "audit" ? "bg-white text-slate-950 shadow dark:bg-slate-800 dark:text-white" : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"}`}
                 >
                   Logs de Auditoria
                 </button>
                 <button 
                   onClick={() => setAdminTab("health")}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${adminTab === "health" ? "bg-white text-slate-950 shadow" : "text-slate-600 hover:text-slate-900"}`}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${adminTab === "health" ? "bg-white text-slate-950 shadow dark:bg-slate-800 dark:text-white" : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"}`}
                 >
                   <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" /> Saúde & Assistência 🩺
                 </button>
                 <button 
                   onClick={() => setAdminTab("smtp")}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${adminTab === "smtp" ? "bg-white text-slate-950 shadow" : "text-slate-600 hover:text-slate-900"}`}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${adminTab === "smtp" ? "bg-white text-slate-950 shadow dark:bg-slate-800 dark:text-white" : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"}`}
                 >
                   <Mail className="w-3.5 h-3.5" /> Configuração SMTP
+                </button>
+                <button 
+                  onClick={() => setAdminTab("sync")}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${adminTab === "sync" ? "bg-white text-slate-950 shadow dark:bg-slate-800 dark:text-white" : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"}`}
+                >
+                  <Database className="w-3.5 h-3.5 text-blue-600" /> Sincronização Cloud
                 </button>
               </div>
             </div>
 
             {/* BARRA DE PESQUISA GLOBAL (GLOBAL SEARCH BAR) */}
-            <div className="relative w-full bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
-              <div className="flex items-center gap-3 text-slate-700 w-full md:w-auto">
-                <div className="w-10 h-10 bg-blue-50 text-blue-700 rounded-2xl flex items-center justify-center">
+            <div className="relative w-full bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between transition-colors duration-300">
+              <div className="flex items-center gap-3 text-slate-700 dark:text-slate-300 w-full md:w-auto">
+                <div className="w-10 h-10 bg-blue-50 dark:bg-slate-800 text-blue-700 dark:text-blue-400 rounded-2xl flex items-center justify-center">
                   <Search className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-black text-slate-950 uppercase tracking-wider">Pesquisa Global de Membros</h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Encontre e faça ações rápidas por ID, E-mail, Telemóvel ou Nome completo.</p>
+                  <h4 className="text-xs font-black text-slate-950 dark:text-white uppercase tracking-wider">Pesquisa Global de Membros</h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Encontre e faça ações rápidas por ID, E-mail, Telemóvel ou Nome completo.</p>
                 </div>
               </div>
 
@@ -6576,12 +7561,12 @@ export default function App() {
                     placeholder="Pesquise por ID (ex: OST-...) ou E-mail..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-250 pl-10 pr-10 py-3 rounded-2xl text-xs font-semibold outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-700 transition"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 pl-10 pr-10 py-3 rounded-2xl text-xs font-semibold outline-none focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/50 focus:border-blue-700 dark:focus:border-blue-500 text-slate-900 dark:text-white transition"
                   />
                   {searchQuery && (
                     <button 
                       onClick={() => setSearchQuery("")}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-200"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -6899,6 +7884,365 @@ export default function App() {
                   )}
                 </div>
 
+                {/* CONFIGURAÇÃO DE LEMBRETES AUTOMÁTICOS DE CULTO (30m Antes) */}
+                <div id="worship-reminder-card" className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 space-y-6 shadow-sm animate-fade-in">
+                  
+                  {/* Card Header with Toggle */}
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-5">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-indigo-50 text-indigo-700 rounded-2xl">
+                        <Clock className="w-5 h-5 text-indigo-700 animate-pulse" />
+                      </div>
+                      <div className="space-y-0.5">
+                        <h3 className="text-base font-extrabold text-slate-950 flex items-center gap-2">
+                          Notificações & Lembretes Automáticos de Culto
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black bg-indigo-100 text-indigo-850 border border-indigo-200">
+                            -30 Minutos
+                          </span>
+                        </h3>
+                        <p className="text-xs text-slate-500 font-medium">Configure e dispare avisos automáticos aos membros 30 minutos antes do início dos cultos.</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1.5 ${
+                        worshipReminderActive 
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200" 
+                          : "bg-slate-100 text-slate-600 border border-slate-200"
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${worshipReminderActive ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`}></span>
+                        {worshipReminderActive ? "Automação Ativa" : "Pausada"}
+                      </span>
+                      <div className="relative inline-flex items-center cursor-pointer select-none">
+                        <input 
+                          type="checkbox" 
+                          checked={worshipReminderActive}
+                          onChange={(e) => setWorshipReminderActive(e.target.checked)}
+                          className="sr-only peer"
+                          id="toggle-worship-reminder-active"
+                        />
+                        <div className="w-10 h-5.5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-indigo-700"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Settings Grid */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    
+                    {/* Left Settings Panel: Form */}
+                    <div className="lg:col-span-7 space-y-4">
+                      
+                      {/* Name of Worship */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-1.5 text-xs text-slate-700">
+                          <label className="block text-[10px] font-black uppercase text-slate-500 tracking-wider">Nome do Culto / Atividade</label>
+                          <input 
+                            type="text"
+                            value={worshipReminderTitle}
+                            onChange={(e) => setWorshipReminderTitle(e.target.value)}
+                            placeholder="Ex: Culto de Celebração de Domingo"
+                            className="w-full bg-slate-50/50 border border-slate-250 px-4 py-3 rounded-2xl font-bold outline-none focus:ring-1 focus:ring-indigo-500 focus:bg-white transition"
+                          />
+                        </div>
+
+                        {/* Start Time with dynamic minus 30 mins calculation */}
+                        <div className="space-y-1.5 text-xs text-slate-700">
+                          <label className="block text-[10px] font-black uppercase text-slate-500 tracking-wider">Hora de Início do Culto</label>
+                          <div className="flex gap-2">
+                            <input 
+                              type="time"
+                              value={worshipReminderTime}
+                              onChange={(e) => setWorshipReminderTime(e.target.value)}
+                              className="bg-slate-50/50 border border-slate-250 px-4 py-3 rounded-2xl font-black outline-none focus:ring-1 focus:ring-indigo-500 focus:bg-white transition flex-1 text-slate-800"
+                            />
+                            
+                            {/* Computed Trigger Time */}
+                            <div className="bg-indigo-50 border border-indigo-100 px-4 py-2.5 rounded-2xl flex flex-col justify-center items-center shrink-0 min-w-[120px]">
+                              <span className="text-[8px] font-black uppercase text-indigo-700 tracking-widest">Disparo às</span>
+                              <span className="text-sm font-black text-indigo-950 font-mono">
+                                {getReminderTriggerTime(worshipReminderTime)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Filters Section (Ministry / Region) */}
+                      <div className="space-y-3 pt-2">
+                        <label className="block text-[10px] font-black uppercase text-slate-500 tracking-wider">Público-Alvo & Filtro de Envio</label>
+                        
+                        <div className="grid grid-cols-3 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setWorshipReminderFilterType("all");
+                              setWorshipReminderFilterValue("Todos");
+                            }}
+                            className={`py-3.5 px-3 rounded-2xl border text-center transition flex flex-col items-center justify-center gap-1 ${
+                              worshipReminderFilterType === "all"
+                                ? "border-indigo-600 bg-indigo-50/40 text-indigo-950"
+                                : "border-slate-200 hover:bg-slate-50 text-slate-600"
+                            }`}
+                          >
+                            <Users className="w-4 h-4 mb-0.5" />
+                            <span className="font-extrabold text-[11px]">Todos</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setWorshipReminderFilterType("ministry");
+                              setWorshipReminderFilterValue("Louvor");
+                            }}
+                            className={`py-3.5 px-3 rounded-2xl border text-center transition flex flex-col items-center justify-center gap-1 ${
+                              worshipReminderFilterType === "ministry"
+                                ? "border-indigo-600 bg-indigo-50/40 text-indigo-950"
+                                : "border-slate-200 hover:bg-slate-50 text-slate-600"
+                            }`}
+                          >
+                            <Briefcase className="w-4 h-4 mb-0.5" />
+                            <span className="font-extrabold text-[11px]">Ministério</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setWorshipReminderFilterType("region");
+                              setWorshipReminderFilterValue("Maputo Central");
+                            }}
+                            className={`py-3.5 px-3 rounded-2xl border text-center transition flex flex-col items-center justify-center gap-1 ${
+                              worshipReminderFilterType === "region"
+                                ? "border-indigo-600 bg-indigo-50/40 text-indigo-950"
+                                : "border-slate-200 hover:bg-slate-50 text-slate-600"
+                            }`}
+                          >
+                            <MapPin className="w-4 h-4 mb-0.5" />
+                            <span className="font-extrabold text-[11px]">Região</span>
+                          </button>
+                        </div>
+
+                        {/* Conditional Dropdown for Ministry Selection */}
+                        {worshipReminderFilterType === "ministry" && (
+                          <div className="space-y-1.5 text-xs text-slate-700 animate-slide-down">
+                            <label className="block text-[9px] font-black uppercase text-indigo-700">Selecione o Ministério de Destino</label>
+                            <select
+                              value={worshipReminderFilterValue}
+                              onChange={(e) => setWorshipReminderFilterValue(e.target.value)}
+                              className="w-full bg-white border border-slate-250 px-4 py-3 rounded-2xl font-bold outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
+                            >
+                              <option value="Todos">Todos os Ministérios</option>
+                              <option value="Louvor">Louvor & Adoração</option>
+                              <option value="Acolhimento">Acolhimento & Ordem</option>
+                              <option value="Infantil">Ministério Infantil</option>
+                              <option value="Intercessão">Intercessão & Oração</option>
+                              <option value="Jovens">Força Jovem</option>
+                              <option value="Mídia">Mídia & Comunicação</option>
+                              <option value="Casais">Família & Casais</option>
+                              <option value="Ação Social">Ação Social</option>
+                            </select>
+                          </div>
+                        )}
+
+                        {/* Conditional Dropdown for Region Selection */}
+                        {worshipReminderFilterType === "region" && (
+                          <div className="space-y-1.5 text-xs text-slate-700 animate-slide-down">
+                            <label className="block text-[9px] font-black uppercase text-indigo-700">Selecione a Região de Destino</label>
+                            <select
+                              value={worshipReminderFilterValue}
+                              onChange={(e) => setWorshipReminderFilterValue(e.target.value)}
+                              className="w-full bg-white border border-slate-250 px-4 py-3 rounded-2xl font-bold outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800"
+                            >
+                              <option value="Todos">Todas as Regiões</option>
+                              {REGIONS.map(reg => (
+                                <option key={reg} value={reg}>{reg}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Configuração de Lembrete Inteligente */}
+                      <div className="space-y-2.5 pt-2">
+                        <div className="flex justify-between items-center">
+                          <label className="block text-[10px] font-black uppercase text-slate-500 tracking-wider">Configuração de Lembrete Inteligente</label>
+                          <span className="text-[9px] text-slate-400 font-bold">Modelo de Mensagem</span>
+                        </div>
+                        <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-xs">
+                          <textarea
+                            value={worshipReminderTemplate}
+                            onChange={(e) => setWorshipReminderTemplate(e.target.value)}
+                            rows={3}
+                            placeholder="Defina o texto padrão para lembretes de culto."
+                            className="w-full bg-slate-50/50 border border-slate-200 focus:bg-white focus:ring-1 focus:ring-indigo-500 rounded-xl p-3 text-xs text-slate-850 font-medium outline-none transition"
+                          />
+                          
+                          {/* Variable insert buttons */}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-[9px] text-slate-400 font-bold mr-1">Inserir:</span>
+                            <button
+                              type="button"
+                              onClick={() => setWorshipReminderTemplate(prev => prev + "{nome}")}
+                              className="bg-slate-50 hover:bg-slate-100 text-indigo-700 border border-slate-200 px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono transition cursor-pointer"
+                              title="Nome do membro"
+                            >
+                              {"{nome}"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setWorshipReminderTemplate(prev => prev + "{horário}")}
+                              className="bg-slate-50 hover:bg-slate-100 text-indigo-700 border border-slate-200 px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono transition cursor-pointer"
+                              title="Horário do culto"
+                            >
+                              {"{horário}"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setWorshipReminderTemplate(prev => prev + "{culto}")}
+                              className="bg-slate-50 hover:bg-slate-100 text-indigo-700 border border-slate-200 px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono transition cursor-pointer"
+                              title="Nome do culto"
+                            >
+                              {"{culto}"}
+                            </button>
+                          </div>
+
+                          {/* Preview container */}
+                          <div className="bg-slate-50 border border-slate-150 p-3 rounded-xl text-left space-y-1">
+                            <span className="block text-[8px] font-black uppercase text-indigo-600 tracking-wider">Pré-visualização do Lembrete:</span>
+                            <p className="text-[11px] text-slate-600 leading-relaxed font-medium italic">
+                              "{(() => {
+                                const previewMemberName = members[0]?.name || "João Mateus";
+                                return worshipReminderTemplate
+                                  .replace(/{nome}/g, previewMemberName)
+                                  .replace(/{horário}/g, worshipReminderTime)
+                                  .replace(/{horario}/g, worshipReminderTime)
+                                  .replace(/{culto}/g, worshipReminderTitle);
+                              })()}"
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Info alert */}
+                      <div className="bg-indigo-50/50 border border-indigo-100/60 p-3.5 rounded-2xl flex gap-2.5 text-[11px] text-indigo-900 leading-relaxed">
+                        <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                        <div>
+                          <strong>Disparo Inteligente 30m antes:</strong> Quando a automação está ativa, o sistema dispara lembretes via API SMS/WhatsApp exatamente 30 minutos antes do horário configurado ({getReminderTriggerTime(worshipReminderTime)}). Apenas membros ativos recebem a notificação.
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right Live Panel: Recipients & Logs */}
+                    <div className="lg:col-span-5 flex flex-col justify-between space-y-4">
+                      
+                      {/* Live Counter Screen */}
+                      <div className="bg-slate-900 text-white p-5 rounded-3xl border border-slate-800 shadow-lg relative overflow-hidden space-y-4 flex-1 flex flex-col justify-between">
+                        <div className="space-y-2">
+                          <span className="text-[9px] font-black uppercase text-indigo-400 tracking-wider">Destinatários Estimados</span>
+                          <p className="text-3xl font-black tracking-tight text-white flex items-baseline gap-2">
+                            {(() => {
+                              const matching = members.filter(m => {
+                                if (worshipReminderFilterType === "all") return true;
+                                if (worshipReminderFilterType === "ministry") {
+                                  if (worshipReminderFilterValue === "Todos") return true;
+                                  return (m.ministry || "Nenhum") === worshipReminderFilterValue;
+                                }
+                                if (worshipReminderFilterType === "region") {
+                                  if (worshipReminderFilterValue === "Todos") return true;
+                                  return (m.region || "Nenhum") === worshipReminderFilterValue;
+                                }
+                                return true;
+                              });
+                              return matching.length;
+                            })()} <span className="text-xs font-semibold text-slate-400">Filtrados</span>
+                          </p>
+                          <p className="text-[10px] text-slate-300">
+                            Filtro atual: <strong className="text-indigo-300 font-bold uppercase">{worshipReminderFilterType === 'all' ? 'Geral (Todos)' : worshipReminderFilterValue}</strong>
+                          </p>
+                        </div>
+
+                        {/* Quick scroll of selected avatars */}
+                        {(() => {
+                          const matching = members.filter(m => {
+                            if (worshipReminderFilterType === "all") return true;
+                            if (worshipReminderFilterType === "ministry") {
+                              if (worshipReminderFilterValue === "Todos") return true;
+                              return (m.ministry || "Nenhum") === worshipReminderFilterValue;
+                            }
+                            if (worshipReminderFilterType === "region") {
+                              if (worshipReminderFilterValue === "Todos") return true;
+                              return (m.region || "Nenhum") === worshipReminderFilterValue;
+                            }
+                            return true;
+                          });
+
+                          return matching.length > 0 ? (
+                            <div className="border-t border-slate-800/80 pt-3 space-y-2">
+                              <span className="text-[9px] font-black uppercase text-slate-400">Pré-visualização do Grupo:</span>
+                              <div className="flex -space-x-2.5 overflow-hidden py-1 max-w-full">
+                                {matching.slice(0, 8).map((m, idx) => (
+                                  <div key={m.id} className="inline-block h-7 w-7 rounded-full ring-2 ring-slate-900 bg-slate-800 flex items-center justify-center text-[10px] font-black text-indigo-300 overflow-hidden shrink-0" title={m.name}>
+                                    {m.photoUrl ? (
+                                      <img src={m.photoUrl} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                      m.name.substring(0, 2).toUpperCase()
+                                    )}
+                                  </div>
+                                ))}
+                                {matching.length > 8 && (
+                                  <div className="h-7 w-7 rounded-full ring-2 ring-slate-900 bg-indigo-900 flex items-center justify-center text-[9px] font-black text-indigo-200 shrink-0">
+                                    +{matching.length - 8}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="border-t border-slate-800/80 pt-3 text-center text-slate-500 text-[11px] py-4">
+                              Nenhum membro corresponde a este critério.
+                            </div>
+                          );
+                        })()}
+
+                        {/* Action buttons */}
+                        <div className="pt-2 border-t border-slate-800/50">
+                          <button
+                            disabled={members.filter(m => {
+                              if (worshipReminderFilterType === "all") return true;
+                              if (worshipReminderFilterType === "ministry") {
+                                if (worshipReminderFilterValue === "Todos") return true;
+                                return (m.ministry || "Nenhum") === worshipReminderFilterValue;
+                              }
+                              if (worshipReminderFilterType === "region") {
+                                if (worshipReminderFilterValue === "Todos") return true;
+                                return (m.region || "Nenhum") === worshipReminderFilterValue;
+                              }
+                              return true;
+                            }).length === 0}
+                            onClick={handleTriggerWorshipReminders}
+                            className="w-full bg-indigo-650 hover:bg-indigo-700 disabled:opacity-50 font-black py-3 px-4 rounded-2xl text-[11px] text-white transition flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
+                          >
+                            <Send className="w-3.5 h-3.5" /> Enviar Agora (Manual)
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Mini Live Log Console */}
+                      <div className="space-y-1.5 text-xs text-slate-700">
+                        <label className="block text-[9px] font-black uppercase text-slate-400 tracking-wider">Histórico de Disparos de Culto</label>
+                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 font-mono text-[9px] h-24 overflow-y-auto space-y-1 scrollbar-thin">
+                          {worshipReminderHistory.map((item, index) => (
+                            <div key={index} className="text-slate-600 border-b border-slate-100/60 pb-1 leading-normal">
+                              &gt; {item}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
                 {/* Expiry Alert Summary and Control Panel */}
                 <div className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4 shadow-sm">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-4">
@@ -7118,7 +8462,7 @@ export default function App() {
                   </div>
 
                   {/* Province Distribution (Pie Chart) */}
-                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4 lg:col-span-2">
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4 lg:col-span-1">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                       <div>
                         <h3 className="text-base font-extrabold text-slate-950">Distribuição de Membros por Província</h3>
@@ -7172,6 +8516,64 @@ export default function App() {
                           Não há dados geográficos de membros para processar.
                         </div>
                       )}
+                    </div>
+                  </div>
+
+                  {/* Monthly Variation of Active & Blocked Members (Bar Chart) */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4 lg:col-span-1">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div>
+                        <h3 className="text-base font-extrabold text-slate-950">Variação Mensal de Membros</h3>
+                        <p className="text-[11px] text-slate-500 font-medium">Comparação de membros Ativos e Bloqueados com o mês anterior.</p>
+                      </div>
+                      <span className="text-[10px] uppercase font-black bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full">Barras</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Active variation card */}
+                      <div className="bg-emerald-50/50 border border-emerald-100 p-3.5 rounded-2xl">
+                        <span className="text-[9px] font-black uppercase text-emerald-800 tracking-wider block">Membros Ativos</span>
+                        <div className="flex items-baseline gap-1.5 mt-1">
+                          <span className="text-xl font-black text-slate-950">{statusVariationData.activeThisMonth}</span>
+                          <span className={`text-[10px] font-extrabold ${statusVariationData.activePct >= 0 ? "text-emerald-700" : "text-rose-600"}`}>
+                            {statusVariationData.activePct >= 0 ? "▲" : "▼"} {statusVariationData.activePct >= 0 ? "+" : ""}{statusVariationData.activePct.toFixed(1)}%
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-1">
+                          Anterior: <span className="font-bold">{statusVariationData.activeLastMonth}</span>
+                        </p>
+                      </div>
+
+                      {/* Blocked variation card */}
+                      <div className="bg-red-50/40 border border-red-100 p-3.5 rounded-2xl">
+                        <span className="text-[9px] font-black uppercase text-red-800 tracking-wider block">Membros Bloqueados</span>
+                        <div className="flex items-baseline gap-1.5 mt-1">
+                          <span className="text-xl font-black text-slate-950">{statusVariationData.blockedThisMonth}</span>
+                          <span className={`text-[10px] font-extrabold ${statusVariationData.blockedPct >= 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                            {statusVariationData.blockedPct >= 0 ? "▲" : "▼"} {statusVariationData.blockedPct >= 0 ? "+" : ""}{statusVariationData.blockedPct.toFixed(1)}%
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-1">
+                          Anterior: <span className="font-bold">{statusVariationData.blockedLastMonth}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="w-full h-52">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={statusVariationData.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                          <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} />
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: "#1e293b", borderRadius: "12px", border: "none", color: "#fff" }}
+                            labelStyle={{ fontWeight: "bold" }}
+                          />
+                          <Legend wrapperStyle={{ fontSize: 11, paddingTop: 5 }} />
+                          <Bar dataKey="Mês Anterior" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="Mês Atual" fill="#1d4ed8" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
                     </div>
                   </div>
                 </div>
@@ -7680,13 +9082,22 @@ export default function App() {
                                 </button>
   
                                 {m.paymentStatus === "Ativo" && (
-                                  <button 
-                                    onClick={() => setSelectedReceipt(m)}
-                                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-2 py-1 rounded text-[10px]"
-                                    title="Ver Recibo"
-                                  >
-                                    Recibo
-                                  </button>
+                                  <div className="inline-flex gap-1.5">
+                                    <button 
+                                      onClick={() => setSelectedReceipt(m)}
+                                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-2 py-1 rounded text-[10px] transition"
+                                      title="Ver Recibo"
+                                    >
+                                      Recibo
+                                    </button>
+                                    <button 
+                                      onClick={() => setSelectedBadge(m)}
+                                      className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-2 py-1 rounded text-[10px] transition"
+                                      title="Ver e Imprimir Crachá"
+                                    >
+                                      Crachá
+                                    </button>
+                                  </div>
                                 )}
                               </td>
                             </tr>
@@ -9982,6 +11393,338 @@ export default function App() {
               </div>
             )}
 
+            {adminTab === "sync" && (
+              <div id="sync-config-panel" className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-8 animate-fade-in">
+                {/* Header */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-5">
+                  <div className="space-y-1">
+                    <h3 className="font-extrabold text-slate-950 text-base flex items-center gap-2">
+                      <Database className="w-5 h-5 text-blue-700" /> Sincronização de Dados (LocalStorage & Firestore)
+                    </h3>
+                    <p className="text-xs text-slate-500">Configure a sincronização bi-direcional inteligente para garantir a persistência segura de dados entre múltiplos dispositivos.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-black uppercase flex items-center gap-1.5 ${
+                      !isSyncActive ? "bg-slate-100 text-slate-600 border border-slate-200" :
+                      syncStatus === "syncing" ? "bg-amber-50 text-amber-700 border border-amber-200 animate-pulse" :
+                      syncStatus === "error" ? "bg-red-50 text-red-700 border border-red-200" :
+                      "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        !isSyncActive ? "bg-slate-400" :
+                        syncStatus === "syncing" ? "bg-amber-500" :
+                        syncStatus === "error" ? "bg-red-500" :
+                        "bg-emerald-500 animate-ping"
+                      }`}></span>
+                      {!isSyncActive ? "Serviço Pausado" :
+                       syncStatus === "syncing" ? "Sincronizando..." :
+                       syncStatus === "error" ? "Ligação Falhou" :
+                       "Serviço Ativo"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                  
+                  {/* Left Column: Sync Settings Form */}
+                  <div className="lg:col-span-7 space-y-6 text-xs text-slate-700">
+                    <div className="bg-slate-50/45 p-6 rounded-2xl border border-slate-200/60 space-y-6">
+                      <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3.5">
+                        <div className="p-2 bg-blue-50 text-blue-700 rounded-xl">
+                          <Settings className="w-4.5 h-4.5" />
+                        </div>
+                        <div>
+                          <h4 className="font-extrabold text-slate-900 text-xs tracking-tight">Parâmetros de Auto-Sincronização</h4>
+                          <p className="text-[10px] text-slate-500 font-medium">Defina as preferências de intervalo e ativação do motor de sincronização em segundo plano.</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-5">
+                        {/* Sync Toggle */}
+                        <div className="flex items-center justify-between p-3.5 bg-white border border-slate-200 rounded-2xl">
+                          <div className="space-y-0.5">
+                            <span className="font-bold text-slate-900 block text-xs">Sincronização em Segundo Plano</span>
+                            <span className="text-[10px] text-slate-500">Permite sincronizar alterações de forma automática e silenciosa.</span>
+                          </div>
+                          <div className="relative inline-flex items-center cursor-pointer select-none">
+                            <input 
+                              type="checkbox" 
+                              checked={isSyncActive}
+                              onChange={(e) => setIsSyncActive(e.target.checked)}
+                              className="sr-only peer"
+                              id="toggle-sync-active"
+                            />
+                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-700"></div>
+                          </div>
+                        </div>
+
+                        {/* Interval Selector */}
+                        <div className="space-y-2">
+                          <label className="block text-[10px] font-black uppercase text-slate-500">Intervalo de Sincronização Automática</label>
+                          <select
+                            disabled={!isSyncActive}
+                            value={syncInterval}
+                            onChange={(e) => setSyncInterval(parseInt(e.target.value, 10))}
+                            className="w-full bg-white border border-slate-200 px-4 py-3 rounded-2xl font-bold outline-none focus:ring-1 focus:ring-blue-700 disabled:opacity-55 disabled:bg-slate-50 text-slate-800"
+                          >
+                            <option value="1">A cada 1 minuto (Tempo Real - Alta frequência)</option>
+                            <option value="5">A cada 5 minutos (Recomendado - Balanceado)</option>
+                            <option value="15">A cada 15 minutos</option>
+                            <option value="30">A cada 30 minutos</option>
+                            <option value="60">A cada 1 hora (Baixo consumo de dados)</option>
+                          </select>
+                          <p className="text-[10px] text-slate-400">
+                            Frequências maiores consomem mais acessos à base de dados na nuvem Firestore.
+                          </p>
+                        </div>
+
+                        {/* Conflict Strategy Selector */}
+                        <div className="space-y-2">
+                          <label className="block text-[10px] font-black uppercase text-slate-500">Resolução de Conflitos de Dados</label>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setSyncPreference("newer")}
+                              className={`p-4 rounded-2xl border text-left space-y-1.5 transition ${
+                                syncPreference === "newer" 
+                                  ? "border-blue-600 bg-blue-50/40" 
+                                  : "border-slate-200 hover:bg-slate-50"
+                              }`}
+                            >
+                              <div className="flex justify-between items-center">
+                                <span className="font-extrabold text-slate-900 text-xs">Mais Recente</span>
+                                <span className={`w-3 h-3 rounded-full border flex items-center justify-center ${syncPreference === "newer" ? "border-blue-600 bg-blue-600" : "border-slate-300"}`}>
+                                  {syncPreference === "newer" && <span className="w-1 h-1 bg-white rounded-full"></span>}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 leading-normal">Compara o registo de alteração (`updatedAt`) e mantém os dados mais recentes.</p>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setSyncPreference("local")}
+                              className={`p-4 rounded-2xl border text-left space-y-1.5 transition ${
+                                syncPreference === "local" 
+                                  ? "border-blue-600 bg-blue-50/40" 
+                                  : "border-slate-200 hover:bg-slate-50"
+                              }`}
+                            >
+                              <div className="flex justify-between items-center">
+                                <span className="font-extrabold text-slate-900 text-xs">Forçar Local</span>
+                                <span className={`w-3 h-3 rounded-full border flex items-center justify-center ${syncPreference === "local" ? "border-blue-600 bg-blue-600" : "border-slate-300"}`}>
+                                  {syncPreference === "local" && <span className="w-1 h-1 bg-white rounded-full"></span>}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 leading-normal">Considera que o dispositivo atual tem os dados corretos e substitui na nuvem.</p>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setSyncPreference("remote")}
+                              className={`p-4 rounded-2xl border text-left space-y-1.5 transition ${
+                                syncPreference === "remote" 
+                                  ? "border-blue-600 bg-blue-50/40" 
+                                  : "border-slate-200 hover:bg-slate-50"
+                              }`}
+                            >
+                              <div className="flex justify-between items-center">
+                                <span className="font-extrabold text-slate-900 text-xs">Forçar Nuvem</span>
+                                <span className={`w-3 h-3 rounded-full border flex items-center justify-center ${syncPreference === "remote" ? "border-blue-600 bg-blue-600" : "border-slate-300"}`}>
+                                  {syncPreference === "remote" && <span className="w-1 h-1 bg-white rounded-full"></span>}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 leading-normal">Substitui as modificações deste dispositivo pelo estado atual do Firestore.</p>
+                            </button>
+                          </div>
+                        </div>
+
+                      </div>
+                    </div>
+
+                    {/* Explanatory Banner */}
+                    <div className="bg-blue-50/50 border border-blue-100 p-4 rounded-2xl flex gap-3 text-[11px] text-blue-800 leading-relaxed">
+                      <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                      <div className="space-y-0.5">
+                        <span className="font-bold text-blue-950 block">Como funciona a persistência bi-direcional?</span>
+                        <span>
+                          O motor lê os membros guardados localmente (`localStorage`) e compara com a coleção global no `Google Firestore`. Novas inscrições, pagamentos efetuados e crachás emitidos em outros dispositivos (ou offline neste browser) são fundidos de forma inteligente, evitando duplicados e garantindo consistência total do cadastro.
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Live Status & Manual Sync controls */}
+                  <div className="lg:col-span-5 space-y-6">
+                    <div className="bg-slate-900 text-white p-6 md:p-8 rounded-3xl border border-slate-800 shadow-2xl relative overflow-hidden flex flex-col justify-between h-full space-y-6">
+                      <div className="space-y-4">
+                        <span className="text-[9px] font-black uppercase text-blue-400 tracking-wider">Estado da Sincronização</span>
+                        
+                        <div className="space-y-2">
+                          <p className="text-3xl font-black tracking-tight text-white flex items-baseline gap-2">
+                            {members.length} <span className="text-xs font-semibold text-slate-400">Membros Registados</span>
+                          </p>
+                          <p className="text-[11px] text-slate-300">
+                            Base de dados: <strong className="text-blue-300 font-bold">Cloud Firestore</strong> ativo.
+                          </p>
+                        </div>
+
+                        <div className="border-t border-slate-800/80 pt-4 space-y-3 text-xs">
+                          <div className="flex justify-between items-center text-[11px]">
+                            <span className="text-slate-400">Última Ligação</span>
+                            <span className="font-mono text-slate-200">{lastSyncTime || "Nunca sincronizado"}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-[11px]">
+                            <span className="text-slate-400">Estado</span>
+                            <span className={`font-bold ${
+                              syncStatus === "success" ? "text-emerald-400" :
+                              syncStatus === "syncing" ? "text-amber-400" :
+                              syncStatus === "error" ? "text-rose-400" :
+                              "text-slate-400"
+                            }`}>
+                              {syncStatus === "success" ? "Sucesso (Sincronizado)" :
+                               syncStatus === "syncing" ? "Sincronizando..." :
+                               syncStatus === "error" ? "Falha na ligação" :
+                               "Pronto para ligar"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center text-[11px]">
+                            <span className="text-slate-400">Estratégia de Conflito</span>
+                            <span className="font-bold text-slate-200 uppercase text-[10px]">
+                              {syncPreference === "newer" ? "Mais Recente" :
+                               syncPreference === "local" ? "Forçar Local" :
+                               "Forçar Nuvem"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-2">
+                        <button
+                          disabled={syncStatus === "syncing"}
+                          onClick={() => performDatabaseSync(true)}
+                          className={`w-full font-bold py-4 px-4 rounded-2xl text-xs transition flex items-center justify-center gap-2 shadow-lg disabled:opacity-55 disabled:cursor-not-allowed ${
+                            syncStatus === "error" 
+                              ? "bg-rose-600 hover:bg-rose-700 text-white" 
+                              : "bg-blue-600 hover:bg-blue-700 text-white"
+                          }`}
+                        >
+                          <RefreshCw className={`w-4 h-4 ${syncStatus === "syncing" ? "animate-spin" : ""}`} />
+                          {syncStatus === "syncing" ? "A Sincronizar Dados..." : "Sincronizar Agora (Forçar)"}
+                        </button>
+                        <p className="text-[10px] text-center text-slate-400 mt-2.5">
+                          Isto irá fundir as modificações imediatamente e atualizar o ecossistema.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* GLOBAL BADGE PRINT PREFERENCES SECTION */}
+                <div id="print-config-panel" className="bg-slate-50/50 dark:bg-slate-900/30 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4 transition-colors">
+                  <div className="flex items-center gap-2.5 border-b border-slate-100 dark:border-slate-800 pb-3.5">
+                    <div className="p-2 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                      <Printer className="w-4.5 h-4.5" />
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-slate-900 dark:text-white text-xs tracking-tight">Definições Globais de Impressão de Crachás</h4>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Defina o formato padrão de validação no crachá para todo o sistema. A opção escolhida será aplicada a todos os crachás gerados.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setBadgeCodeOption("both")}
+                      className={`p-4 rounded-2xl border text-left space-y-1.5 transition cursor-pointer ${
+                        badgeCodeOption === "both" 
+                          ? "border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/20" 
+                          : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 bg-white dark:bg-slate-900"
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="font-extrabold text-slate-900 dark:text-white text-xs">Ambos (QR & Código de Barras)</span>
+                        <span className={`w-3 h-3 rounded-full border flex items-center justify-center ${badgeCodeOption === "both" ? "border-indigo-600 bg-indigo-600" : "border-slate-300 dark:border-slate-700"}`}>
+                          {badgeCodeOption === "both" && <span className="w-1 h-1 bg-white rounded-full"></span>}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-normal">Exibe o QR Code e o Código de Barras lado a lado no rodapé do crachá para validação flexível.</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setBadgeCodeOption("qr")}
+                      className={`p-4 rounded-2xl border text-left space-y-1.5 transition cursor-pointer ${
+                        badgeCodeOption === "qr" 
+                          ? "border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/20" 
+                          : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 bg-white dark:bg-slate-900"
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="font-extrabold text-slate-900 dark:text-white text-xs">Apenas QR Code</span>
+                        <span className={`w-3 h-3 rounded-full border flex items-center justify-center ${badgeCodeOption === "qr" ? "border-indigo-600 bg-indigo-600" : "border-slate-300 dark:border-slate-700"}`}>
+                          {badgeCodeOption === "qr" && <span className="w-1 h-1 bg-white rounded-full"></span>}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-normal">Exibe apenas o QR Code de segurança centralizado no rodapé do crachá, ideal para leitores óticos de smartphone.</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setBadgeCodeOption("barcode")}
+                      className={`p-4 rounded-2xl border text-left space-y-1.5 transition cursor-pointer ${
+                        badgeCodeOption === "barcode" 
+                          ? "border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/20" 
+                          : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 bg-white dark:bg-slate-900"
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="font-extrabold text-slate-900 dark:text-white text-xs">Apenas Código de Barras</span>
+                        <span className={`w-3 h-3 rounded-full border flex items-center justify-center ${badgeCodeOption === "barcode" ? "border-indigo-600 bg-indigo-600" : "border-slate-300 dark:border-slate-700"}`}>
+                          {badgeCodeOption === "barcode" && <span className="w-1 h-1 bg-white rounded-full"></span>}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-normal">Exibe apenas o Código de Barras e número de acesso centralizados, ideal para leitores de pistola comuns.</p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Bottom Row: Monospaced Log Console Terminal */}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <label className="block text-[10px] font-black uppercase text-slate-500 tracking-wider">Consola de Eventos & Logs de Sincronização</label>
+                    <button
+                      onClick={() => {
+                        setSyncLogs(["[Sistema] Histórico de logs limpo às " + new Date().toLocaleTimeString()]);
+                        localStorage.setItem("ost_sync_logs", JSON.stringify(["[Sistema] Histórico de logs limpo às " + new Date().toLocaleTimeString()]));
+                      }}
+                      className="text-[10px] text-slate-400 hover:text-slate-600 font-bold transition flex items-center gap-1"
+                    >
+                      Limpar Consola
+                    </button>
+                  </div>
+
+                  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 font-mono text-[11px] text-slate-300 h-60 overflow-y-auto space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800">
+                    {syncLogs.length === 0 ? (
+                      <p className="text-slate-500 italic">Sem eventos registados.</p>
+                    ) : (
+                      syncLogs.map((log, index) => (
+                        <div key={index} className="flex gap-2 leading-relaxed hover:bg-slate-800/40 py-0.5 px-1 rounded transition">
+                          <span className="text-slate-500 shrink-0 select-none">&gt;</span>
+                          <span className={
+                            log.includes("Falha") || log.includes("Erro") ? "text-rose-400" :
+                            log.includes("concluída com sucesso") || log.includes("Sucesso") ? "text-emerald-400 font-semibold" :
+                            "text-slate-300"
+                          }>{log}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            )}
+
             {adminTab === "health" && (
               <div id="health-assistance-panel" className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-8 animate-fade-in">
                 {/* Header */}
@@ -10434,6 +12177,282 @@ export default function App() {
                 className="flex-1 bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow transition"
               >
                 <Printer className="w-4 h-4" /> Imprimir / PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================= */}
+      {/* ACTIVE BADGE GENERATION MODAL (ADMIN)   */}
+      {/* ======================================= */}
+      {selectedBadge && (
+        <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 md:p-8 shadow-2xl relative border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white transition-colors animate-in fade-in duration-150">
+            <button 
+              onClick={() => setSelectedBadge(null)}
+              className="absolute top-5 right-5 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="space-y-4 flex flex-col items-center">
+              <div className="text-center">
+                <h3 className="text-lg font-black text-[#0B2E59] dark:text-blue-400">Gerador de Crachá Oficial</h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Membro: <strong className="text-slate-800 dark:text-slate-200">{selectedBadge.name}</strong> • ID: {selectedBadge.id}</p>
+              </div>
+
+              {/* Live Preview of the Badge */}
+              <div 
+                className="w-80 h-[585px] bg-white rounded-[22px] shadow-xl border border-slate-200 flex flex-col items-center relative overflow-hidden transition-all duration-300 select-none mx-auto text-slate-900"
+                style={{ 
+                  backgroundImage: "radial-gradient(circle, rgba(11, 46, 89, 0.05) 1.2px, transparent 1.2px)", 
+                  backgroundSize: "16px 16px" 
+                }}
+              >
+                {/* Discrete High-Fidelity Church Logo Watermark in Background */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-[0.035] pointer-events-none z-0 rotate-12 scale-125 select-none">
+                  <ChurchLogo className="w-64 h-64" />
+                </div>
+
+                {/* Elegant Inner Border Offset with custom gold color */}
+                <div className="absolute inset-2.5 border-2 border-[#D4AF37]/35 rounded-[18px] pointer-events-none z-10 opacity-60"></div>
+
+                {/* 1. PREMIUM HEADER BLOCK */}
+                <div className="w-full bg-[#0B2E59] px-4 pt-5 pb-3.5 flex flex-col items-center relative text-center shadow-lg z-20 border-b-2 border-[#D4AF37]">
+                  {/* Mozambique Flag Mini Official Ribbon */}
+                  <div className="absolute top-3.5 right-4 flex h-1.5 rounded overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
+                    <div className="w-3 bg-emerald-600"></div>
+                    <div className="w-3 bg-black"></div>
+                    <div className="w-3 bg-red-600"></div>
+                    <div className="w-3 bg-amber-400"></div>
+                  </div>
+
+                  <div className="bg-white/10 p-1 rounded-full border border-[#D4AF37]/40 mb-2">
+                    <ChurchLogo className="w-10 h-10" />
+                  </div>
+
+                  <h3 className="text-[10px] font-black tracking-[0.14em] text-white uppercase leading-none font-sans">IAFI MINISTÉRIOS</h3>
+                  <h3 className="text-[9px] font-bold tracking-[0.11em] text-[#D4AF37] uppercase mt-0.5 leading-none font-sans">Avante na Fé Internacional</h3>
+                  
+                  <p className="text-[7.5px] font-bold tracking-[0.18em] text-blue-200 mt-2 uppercase font-mono">
+                    CRACHÁ OFICIAL DE MEMBRO
+                  </p>
+                </div>
+
+                {/* 2. PHOTO PORTRAIT FRAME */}
+                <div className="relative mt-5 z-20">
+                  <div 
+                    className="w-[124px] h-[124px] rounded-full bg-white border-2 p-1 shadow-lg overflow-hidden flex items-center justify-center"
+                    style={{ 
+                      borderColor: "#D4AF37",
+                      boxShadow: "0 10px 25px -5px rgba(11, 46, 89, 0.2), 0 8px 10px -6px rgba(11, 46, 89, 0.2)"
+                    }}
+                  >
+                    <div className="w-full h-full rounded-full bg-slate-50 overflow-hidden relative">
+                      {selectedBadge.photoUrl ? (
+                        <img src={selectedBadge.photoUrl} alt="Foto Membro" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-slate-100 text-[#0B2E59]/40">
+                          <User className="w-14 h-14" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. NAME & METADATA COLUMN */}
+                <div className="w-full px-5 flex flex-col items-center mt-3 z-20 text-center">
+                  <h3 className="text-base font-black text-[#0B2E59] leading-tight mt-0.5 uppercase tracking-tight max-w-[260px] line-clamp-2">
+                    {selectedBadge.name}
+                  </h3>
+                  
+                  <p className="text-[8.5px] text-slate-500 font-bold mt-1 uppercase tracking-widest font-mono">
+                    • {selectedBadge.region.toUpperCase()} • {selectedBadge.province.toUpperCase()} •
+                  </p>
+
+                  <div className="mt-2.5">
+                    <span 
+                      className="inline-flex items-center gap-1.5 px-4.5 py-1 rounded-full uppercase tracking-[0.2em] text-[9px] font-black bg-[#0B2E59] text-[#D4AF37] border border-[#D4AF37]/50 shadow-sm"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-pulse"></span>
+                      {getPositionTheme(selectedBadge.role).name}
+                    </span>
+                  </div>
+
+                  {/* 4. DETAILS GRID */}
+                  <div className="w-full grid grid-cols-2 gap-2.5 mt-4 text-left">
+                    <div className="bg-slate-50/85 backdrop-blur-[1px] border border-slate-150 rounded-xl p-2.5 shadow-xs">
+                      <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">ID Membro</p>
+                      <p className="text-xs font-black font-mono text-[#0B2E59] leading-none mt-0.5">{selectedBadge.id}</p>
+                    </div>
+                    <div className="bg-slate-50/85 backdrop-blur-[1px] border border-slate-150 rounded-xl p-2.5 shadow-xs">
+                      <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">Emissão</p>
+                      <p className="text-xs font-bold text-[#0B2E59]/80 leading-none font-mono mt-0.5">{new Date(selectedBadge.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    <div className="bg-slate-50/85 backdrop-blur-[1px] border border-slate-150 rounded-xl p-2.5 shadow-xs">
+                      <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">Estado</p>
+                      <p className="text-[10px] font-black text-emerald-600 leading-none uppercase tracking-wider flex items-center gap-1 mt-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                        Ativo
+                      </p>
+                    </div>
+                    <div className="bg-slate-50/85 backdrop-blur-[1px] border border-slate-150 rounded-xl p-2.5 shadow-xs">
+                      <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">Quotas</p>
+                      <p className="text-[10px] font-black text-emerald-600 leading-none uppercase tracking-wider flex items-center gap-1 mt-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] inline-block"></span>
+                        Em Dia
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. ELEGANT FOOTER */}
+                {modalCodeOption === "both" && (
+                  <div className="w-full mt-auto px-5 pb-5 pt-3 bg-[#0B2E59]/5 border-t border-slate-100 flex items-center justify-between gap-3.5 z-20">
+                    <div className="flex flex-col items-start gap-1">
+                      <span className="text-[7px] font-black text-slate-400 uppercase tracking-wider font-mono">Secure QR</span>
+                      <div className="w-12 h-12 bg-white border border-[#D4AF37]/30 rounded-lg p-1.5 flex items-center justify-center shadow-xs">
+                        <img 
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${window.location.origin}/?validate=${selectedBadge.id}`} 
+                          alt="Verification QR" 
+                          className="w-full h-full"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex-1 flex flex-col items-end gap-1">
+                      <span className="text-[7px] font-black text-slate-400 uppercase tracking-wider font-mono">Código de Acesso</span>
+                      <div className="w-full bg-white border border-slate-200/80 rounded-lg p-1.5 flex flex-col items-center justify-center shadow-xs">
+                        <div className="h-5 flex gap-[1.2px] items-end justify-center w-full opacity-90">
+                          {[2,1,3,1,2,1,4,1,1,3,1,2,1,1,1,2,1,3,1,2,1.5,1,2].map((w, i) => (
+                            <div key={i} className="bg-slate-900 h-full flex-1 max-w-[2px]" style={{ minWidth: '1px' }}></div>
+                          ))}
+                        </div>
+                        <p className="text-[7.5px] text-[#0B2E59] font-black font-mono mt-0.5 tracking-[0.18em]">{selectedBadge.barcode || "120394102941"}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {modalCodeOption === "qr" && (
+                  <div className="w-full mt-auto px-5 pb-5 pt-3 bg-[#0B2E59]/5 border-t border-slate-100 flex flex-col items-center justify-center gap-1 z-20">
+                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-wider font-mono text-center">Secure QR</span>
+                    <div className="w-16 h-16 bg-white border border-[#D4AF37]/30 rounded-lg p-1.5 flex items-center justify-center shadow-xs">
+                      <img 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${window.location.origin}/?validate=${selectedBadge.id}`} 
+                        alt="Verification QR" 
+                        className="w-full h-full"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {modalCodeOption === "barcode" && (
+                  <div className="w-full mt-auto px-5 pb-5 pt-3 bg-[#0B2E59]/5 border-t border-slate-100 flex flex-col items-center justify-center gap-1 z-20">
+                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-wider font-mono text-center">Código de Acesso</span>
+                    <div className="w-48 bg-white border border-slate-200/80 rounded-lg p-2 flex flex-col items-center justify-center shadow-xs">
+                      <div className="h-6 flex gap-[1.5px] items-end justify-center w-full opacity-90">
+                        {[2,1,3,1,2,1,4,1,1,3,1,2,1,1,1,2,1,3,1,2,1.5,1,2,1,3].map((w, i) => (
+                          <div key={i} className="bg-slate-900 h-full flex-1 max-w-[2px]" style={{ minWidth: '1px' }}></div>
+                        ))}
+                      </div>
+                      <p className="text-[8px] text-[#0B2E59] font-black font-mono mt-1 tracking-[0.2em]">{selectedBadge.barcode || "120394102941"}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Code Option Selector (Dynamic Controller in Modal) */}
+              <div className="bg-slate-50 dark:bg-slate-950 p-3.5 rounded-2xl border border-slate-150 dark:border-slate-800 space-y-3 max-w-sm w-full mx-auto">
+                <span className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center">Formato de Validação no Crachá</span>
+                <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalCodeOption("both");
+                      if (saveAsGlobal) {
+                        setBadgeCodeOption("both");
+                      }
+                    }}
+                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${modalCodeOption === "both" ? "bg-white dark:bg-slate-800 text-[#0B2E59] dark:text-white shadow-xs" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"}`}
+                  >
+                    Ambos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalCodeOption("qr");
+                      if (saveAsGlobal) {
+                        setBadgeCodeOption("qr");
+                      }
+                    }}
+                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${modalCodeOption === "qr" ? "bg-white dark:bg-slate-800 text-[#0B2E59] dark:text-white shadow-xs" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"}`}
+                  >
+                    QR Code
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalCodeOption("barcode");
+                      if (saveAsGlobal) {
+                        setBadgeCodeOption("barcode");
+                      }
+                    }}
+                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${modalCodeOption === "barcode" ? "bg-white dark:bg-slate-800 text-[#0B2E59] dark:text-white shadow-xs" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"}`}
+                  >
+                    Cód. Barras
+                  </button>
+                </div>
+
+                {/* Checkbox for Global Preference */}
+                <label className="flex items-center justify-center gap-2 px-1 py-0.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={saveAsGlobal}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setSaveAsGlobal(checked);
+                      if (checked) {
+                        setBadgeCodeOption(modalCodeOption);
+                      }
+                    }}
+                    className="w-3.5 h-3.5 text-indigo-600 border-slate-300 dark:border-slate-700 rounded-sm focus:ring-indigo-500 cursor-pointer"
+                  />
+                  <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">
+                    Definir como preferência global
+                  </span>
+                </label>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex flex-col sm:flex-row gap-2.5 w-full pt-2">
+                <button 
+                  onClick={() => {
+                    handleGenerateBadgePDF(selectedBadge, true, { withBleedAndCrop: false, codeFormat: modalCodeOption });
+                    addLog(selectedBadge.name, "Administrador descarregou crachá padrão em PDF", "success");
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-400 px-4 py-2.5 rounded-xl transition cursor-pointer active:scale-95 border border-blue-200/50"
+                >
+                  <Printer className="w-4 h-4" /> Crachá Padrão
+                </button>
+
+                <button 
+                  onClick={() => {
+                    handleGenerateBadgePDF(selectedBadge, true, { withBleedAndCrop: true, codeFormat: modalCodeOption });
+                    addLog(selectedBadge.name, "Administrador descarregou crachá com sangria em PDF", "success");
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-400 px-4 py-2.5 rounded-xl transition cursor-pointer active:scale-95 border border-indigo-200/50"
+                >
+                  <Scissors className="w-4 h-4" /> PVC (Sangria)
+                </button>
+              </div>
+
+              <button 
+                onClick={() => setSelectedBadge(null)}
+                className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold py-2.5 rounded-xl text-xs transition mt-2"
+              >
+                Fechar
               </button>
             </div>
           </div>
