@@ -2719,18 +2719,48 @@ export default function App() {
     }));
   };
 
-  const getBase64ImageFromUrl = async (imageUrl: string): Promise<string> => {
+  const getBase64ImageFromUrl = async (imageUrl: string, maxDim: number = 250): Promise<string> => {
     try {
       const res = await fetch(imageUrl);
       const blob = await res.blob();
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.addEventListener("load", () => {
-          resolve(reader.result as string);
+          // Se for QR code, manter PNG nítido e não redimensionar para evitar perda de contraste/artefatos
+          if (imageUrl.includes("qrserver") || imageUrl.includes("create-qr-code")) {
+            resolve(reader.result as string);
+            return;
+          }
+
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = maxDim;
+            canvas.height = maxDim;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              // Fazer um crop quadrado perfeito a partir do centro da imagem original para evitar distorção
+              const size = Math.min(img.width, img.height);
+              const sx = (img.width - size) / 2;
+              const sy = (img.height - size) / 2;
+              
+              ctx.drawImage(img, sx, sy, size, size, 0, 0, maxDim, maxDim);
+              
+              // Comprimir como JPEG de qualidade otimizada (0.75) para reduzir radicalmente o tamanho do PDF
+              // mantendo excelente nitidez para impressão e reduzindo o processamento de impressoras térmicas.
+              resolve(canvas.toDataURL("image/jpeg", 0.75));
+            } else {
+              resolve(reader.result as string);
+            }
+          };
+          img.onerror = () => {
+            resolve(reader.result as string);
+          };
+          img.src = reader.result as string;
         }, false);
-        reader.addEventListener("error", () => {
+        reader.onerror = () => {
           reject(new Error("Falha ao ler dados da imagem"));
-        });
+        };
         reader.readAsDataURL(blob);
       });
     } catch (e) {
@@ -2765,7 +2795,8 @@ export default function App() {
     const doc = options?.docInstance || new jsPDF({
       orientation: "portrait",
       unit: "mm",
-      format: withBleedAndCrop ? [60, 92] : [54, 86]
+      format: withBleedAndCrop ? [60, 92] : [54, 86],
+      compress: true // Ativar compressão de fluxo PDF para reduzir significativamente o tamanho do ficheiro
     });
 
     const w = width * scale;
@@ -2943,7 +2974,9 @@ export default function App() {
           photoCenterX - photoRadius, 
           photoCenterY - photoRadius, 
           photoRadius * 2, 
-          photoRadius * 2
+          photoRadius * 2,
+          undefined,
+          "FAST" // Compressão rápida para otimização de peso
         );
         doc.restoreGraphicsState();
       } catch (e) {
@@ -3151,7 +3184,7 @@ export default function App() {
       try {
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(window.location.origin + "/?validate=" + member.id)}`;
         const base64QR = await getBase64ImageFromUrl(qrUrl);
-        doc.addImage(base64QR, "PNG", qrX, qrY, qrSize, qrSize);
+        doc.addImage(base64QR, "PNG", qrX, qrY, qrSize, qrSize, undefined, "FAST");
       } catch (e) {
         doc.setDrawColor(226, 232, 240);
         doc.setFillColor(255, 255, 255);
@@ -3168,7 +3201,7 @@ export default function App() {
       const barcodeX = dx + innerOffset + footerColW + footerColW / 2 - barcodeW / 2;
       const barcodeY = bottomContentY + 1.0 * scale;
 
-      doc.setFillColor(15, 23, 42); // Deep Slate
+      doc.setFillColor(0, 0, 0); // Preto puro (#000000) para compatibilidade perfeita com impressoras térmicas/código de barras
       const lineWeights = [1.2, 0.5, 1.8, 0.4, 1.0, 1.2, 0.5, 2.0, 0.8, 0.5, 1.2, 0.4, 0.8, 1.8, 0.5, 1.2];
       let currentX = barcodeX;
       lineWeights.forEach((wWeight) => {
@@ -3200,7 +3233,7 @@ export default function App() {
       try {
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.origin + "/?validate=" + member.id)}`;
         const base64QR = await getBase64ImageFromUrl(qrUrl);
-        doc.addImage(base64QR, "PNG", qrX, qrY, qrSize, qrSize);
+        doc.addImage(base64QR, "PNG", qrX, qrY, qrSize, qrSize, undefined, "FAST");
       } catch (e) {
         doc.setDrawColor(226, 232, 240);
         doc.setFillColor(255, 255, 255);
@@ -3228,7 +3261,7 @@ export default function App() {
       
       const barcodeStartX = dx + w / 2 - totalBarcodeW / 2;
       let currentX = barcodeStartX;
-      doc.setFillColor(15, 23, 42);
+      doc.setFillColor(0, 0, 0); // Preto puro (#000000) para compatibilidade perfeita com impressoras térmicas/código de barras
       lineWeights.forEach((wWeight) => {
         const rectW = wWeight * 0.3 * scale;
         doc.rect(currentX, barcodeY, rectW, barcodeH, "F");
