@@ -15,6 +15,7 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   PieChart, Pie, Cell, BarChart, Bar 
 } from "recharts";
+import { motion, AnimatePresence } from "motion/react";
 
 // --- INTERFACES & ENUMS ---
 import { 
@@ -53,7 +54,7 @@ const ChurchLogo = ({ className = "w-16 h-16" }: { className?: string }) => {
         {/* Subtle background glow radial gradient */}
         <radialGradient id="church-logo-bg" cx="50%" cy="50%" r="50%">
           <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="65%" stopColor="#8daed1" />
+          <stop offset="65%" stopColor="#3b82f6" />
           <stop offset="100%" stopColor="#0B2E59" />
         </radialGradient>
         {/* Beautiful 3D gradient for the Cross */}
@@ -67,35 +68,35 @@ const ChurchLogo = ({ className = "w-16 h-16" }: { className?: string }) => {
         <path id="church-curve-bottom" d="M 88 50 A 38 38 0 0 1 12 50" fill="none" />
       </defs>
       
-      {/* Outer Golden Border & Base Dark Blue Circle */}
-      <circle cx="50" cy="50" r="48" fill="#0B2E59" stroke="#D4AF37" strokeWidth="2.5" />
+      {/* Outer Red/Brown Border & Base Dark Blue Circle */}
+      <circle cx="50" cy="50" r="48" fill="#0B2E59" stroke="#b01c1c" strokeWidth="1.5" />
       
-      {/* Inner Metallic/Red Border Ring */}
-      <circle cx="50" cy="50" r="43" fill="none" stroke="#b01c1c" strokeWidth="1" />
+      {/* Inner White Border Ring */}
+      <circle cx="50" cy="50" r="43" fill="none" stroke="#ffffff" strokeWidth="1" opacity="0.9" />
       
       {/* Central Background with Gradient */}
-      <circle cx="50" cy="50" r="35" fill="url(#church-logo-bg)" stroke="#D4AF37" strokeWidth="0.8" />
+      <circle cx="50" cy="50" r="35" fill="url(#church-logo-bg)" stroke="#ffffff" strokeWidth="0.8" />
       
       {/* Text on top path */}
-      <text className="font-sans text-[4.8px] font-black fill-white tracking-[0.03em]">
+      <text className="font-sans text-[4.1px] font-black fill-white tracking-[0.02em]">
         <textPath href="#church-curve-top" startOffset="50%" textAnchor="middle">
-          IAFI MINISTÉRIOS AVANTE NA FÉ INT.
+          IAFI Ministérios Avante na Fé Int.
         </textPath>
       </text>
       
       {/* Text on bottom path */}
-      <text className="font-sans text-[4.5px] font-bold fill-sky-200 tracking-[0.01em]">
+      <text className="font-sans text-[4.1px] font-bold fill-sky-200 tracking-[0.02em]">
         <textPath href="#church-curve-bottom" startOffset="50%" textAnchor="middle">
           Guiados pelo Espírito Santo
         </textPath>
       </text>
       
       {/* Beautiful Central Red Cross with Drop Shadow */}
-      <g transform="translate(42, 33)" filter="drop-shadow(0px 1px 1.5px rgba(0,0,0,0.4))">
+      <g transform="translate(42.5, 33.5)" filter="drop-shadow(0px 1px 1.5px rgba(0,0,0,0.4))">
         {/* Vertical shaft */}
-        <rect x="5.5" y="0" width="5" height="24" fill="url(#church-cross-grad)" rx="1" />
+        <rect x="5.5" y="0" width="4.5" height="23" fill="url(#church-cross-grad)" rx="1" />
         {/* Horizontal beam */}
-        <rect x="0" y="7" width="16" height="5" fill="url(#church-cross-grad)" rx="1" />
+        <rect x="0" y="6.5" width="15.5" height="4.5" fill="url(#church-cross-grad)" rx="1" />
       </g>
     </svg>
   );
@@ -402,12 +403,53 @@ export default function App() {
       "Olá {nome}! Lembramos que o nosso \"{culto}\" começará em 30 minutos (às {horário}). A sua presença é muito especial! Que Deus o abençoe.";
   });
   const [adminDarkMode, setAdminDarkMode] = useState<boolean>(() => {
-    return localStorage.getItem("ost_admin_dark_mode") === "true";
+    const saved = localStorage.getItem("ost_admin_dark_mode");
+    if (saved !== null) {
+      return saved === "true";
+    }
+    return typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches;
   });
+  const [systemThemePulse, setSystemThemePulse] = useState<boolean>(false);
 
   useEffect(() => {
     localStorage.setItem("ost_admin_dark_mode", String(adminDarkMode));
   }, [adminDarkMode]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (adminDarkMode && currentMode === "admin") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    }
+  }, [adminDarkMode, currentMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    
+    const handleChange = (e: MediaQueryListEvent) => {
+      setAdminDarkMode(e.matches);
+      setSystemThemePulse(true);
+    };
+
+    mediaQuery.addEventListener("change", handleChange);
+    return () => {
+      mediaQuery.removeEventListener("change", handleChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (systemThemePulse) {
+      const timer = setTimeout(() => {
+        setSystemThemePulse(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [systemThemePulse]);
+
+  const [showToggleTooltip, setShowToggleTooltip] = useState<boolean>(false);
 
   const getReminderTriggerTime = (startTimeStr: string): string => {
     if (!startTimeStr) return "00:00";
@@ -2714,15 +2756,18 @@ export default function App() {
     const dy = options?.startY !== undefined ? options.startY : (withBleedAndCrop ? 3 : 0);
     const codeFormat = options?.codeFormat || "both";
 
+    // Standard portrait CR80 dimensions: 54mm width, 86mm height
+    // Bleed format adds 3mm margin on each side: 60mm x 92mm
+    const width = 54;
+    const height = 86;
+
     // If docInstance is provided, use it; otherwise create a new jsPDF instance
     const doc = options?.docInstance || new jsPDF({
       orientation: "portrait",
       unit: "mm",
-      format: withBleedAndCrop ? [91, 126] : [85, 120]
+      format: withBleedAndCrop ? [60, 92] : [54, 86]
     });
 
-    const width = 85;
-    const height = 120;
     const w = width * scale;
     const h = height * scale;
 
@@ -2731,98 +2776,158 @@ export default function App() {
     // If we have single-badge bleed, let's fill the background with white
     if (withBleedAndCrop && !options?.docInstance) {
       doc.setFillColor(255, 255, 255);
-      doc.rect(0, 0, 91, 126, "F");
+      doc.rect(0, 0, 60, 92, "F");
     }
 
-    // 1. OUTER CARD BORDER & SHADOW EFFECT
-    // Soft outer gray line
-    doc.setDrawColor(226, 232, 240); // Slate-200
-    doc.setLineWidth(0.3 * scale);
-    doc.rect(dx, dy, w, h);
+    // CR80 spec: standard rounded corner radius is typically 3.18mm
+    const cardRadius = 3.18 * scale;
 
-    // Elegant inner border offset by 1.2mm for a high-end corporate framing (Gold, matching the UI #D4AF37)
+    // Base background of the card (White) with rounded corners
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(dx, dy, w, h, cardRadius, cardRadius, "F");
+
+    // Reusable helper to draw high-fidelity vector Church Logo
+    const drawVectorChurchLogo = (cx: number, cy: number, r: number, isWatermark: boolean = false) => {
+      if (isWatermark) {
+        // Watermark mode: extremely faint lines, no solid fills
+        doc.setDrawColor(241, 245, 249); // slate-100 equivalent
+        doc.setLineWidth(0.08 * scale);
+        
+        // Outer circle
+        doc.ellipse(cx, cy, r, r, "D");
+        // Inner ring
+        doc.ellipse(cx, cy, r - 0.6 * scale, r - 0.6 * scale, "D");
+        // Center circle
+        doc.ellipse(cx, cy, r - 1.5 * scale, r - 1.5 * scale, "D");
+        
+        // Draw light cross
+        doc.setFillColor(241, 245, 249);
+        doc.rect(cx - 0.4 * scale, cy - r * 0.6, 0.8 * scale, r * 1.2, "F");
+        doc.rect(cx - r * 0.6, cy - 0.4 * scale, r * 1.2, 0.8 * scale, "F");
+      } else {
+        // Full-color mode (the official logo in header)
+        // Base Dark Blue Circle with Outer Red/Brown Border
+        doc.setFillColor(11, 46, 89); // Deep blue base #0B2E59
+        doc.setDrawColor(176, 28, 28); // Red border #b01c1c
+        doc.setLineWidth(0.18 * scale);
+        doc.ellipse(cx, cy, r, r, "FD");
+
+        // Inner white ring
+        doc.setDrawColor(255, 255, 255);
+        doc.setLineWidth(0.12 * scale);
+        doc.ellipse(cx, cy, r - 0.4 * scale, r - 0.4 * scale, "D");
+
+        // Central blue sphere background
+        doc.setFillColor(59, 130, 246); // Blue-500 #3b82f6
+        doc.ellipse(cx, cy, r - 0.8 * scale, r - 0.8 * scale, "F");
+
+        // Central 3D-like red cross
+        doc.setFillColor(194, 37, 37); // Red #c22525
+        // Vertical shaft
+        doc.rect(cx - 0.3 * scale, cy - r * 0.55, 0.6 * scale, r * 1.1, "F");
+        // Horizontal beam
+        doc.rect(cx - r * 0.45, cy - 0.3 * scale, r * 0.9, 0.6 * scale, "F");
+      }
+    };
+
+    // Helper to draw the elegant inner rounded gold border (matches the rounded-[24px] in the preview)
     const innerOffset = 1.2 * scale;
-    doc.setDrawColor(212, 175, 55); // Gold #D4AF37
-    doc.setLineWidth(0.25 * scale);
-    doc.rect(dx + innerOffset, dy + innerOffset, w - 2 * innerOffset, h - 2 * innerOffset);
+    const drawInnerGoldBorder = () => {
+      doc.setDrawColor(212, 175, 55); // Gold #D4AF37
+      doc.setLineWidth(0.18 * scale);
+      doc.roundedRect(
+        dx + innerOffset,
+        dy + innerOffset,
+        w - 2 * innerOffset,
+        h - 2 * innerOffset,
+        2.8 * scale,
+        2.8 * scale,
+        "D"
+      );
+    };
 
     // 2. ANTI-COUNTERFEITING SECURITY WATERMARK/GUILLOCHÉ IN THE BACKGROUND
-    // Drawing thin concentric decorative background circles to mimic secure certificates
+    const centerX = dx + w / 2;
+    const centerY = dy + h / 2 + 5 * scale;
     doc.setDrawColor(241, 245, 249); // Slate-100 (very subtle)
     doc.setLineWidth(0.08 * scale);
-    const centerY = dy + h / 2 + 10 * scale;
-    const centerX = dx + w / 2;
-    for (let r = 8 * scale; r <= 36 * scale; r += 4 * scale) {
+    for (let r = 5 * scale; r <= 22 * scale; r += 2.5 * scale) {
       doc.ellipse(centerX, centerY, r, r * 0.9, "D");
     }
     // Subtle crosshair lines
-    doc.line(centerX - 40 * scale, centerY, centerX + 40 * scale, centerY);
-    doc.line(centerX, centerY - 40 * scale, centerX, centerY + 40 * scale);
+    doc.line(centerX - 24 * scale, centerY, centerX + 24 * scale, centerY);
+    doc.line(centerX, centerY - 24 * scale, centerX, centerY + 24 * scale);
+
+    // Draw large watermark church logo in the background
+    drawVectorChurchLogo(centerX, centerY, 10 * scale, true);
 
     // 3. PREMIUM TOP HEADER DESIGN (Royal Blue matching #0B2E59)
+    // We draw a rounded rectangle for the header to match the card rounding
+    const headerH = 18.5 * scale;
     doc.setFillColor(11, 46, 89); // Royal Blue #0B2E59
-    if (withBleedAndCrop && !options?.docInstance) {
-      // Cover the full top bleed area
-      doc.rect(0, 0, 91, 30, "F");
-    } else {
-      doc.rect(dx, dy, w, 27 * scale, "F");
-    }
+    doc.roundedRect(dx, dy, w, headerH, cardRadius, cardRadius, "F");
 
-    // Modern colored accent ribbon under the main header (Gold matching #D4AF37)
+    // Flatten the bottom of the header
+    const flattenH = 4 * scale;
+    doc.rect(dx, dy + headerH - flattenH, w, flattenH, "F");
+
+    // Modern colored gold accent ribbon under the main header (Gold matching #D4AF37)
     doc.setFillColor(212, 175, 55); // Gold #D4AF37
-    if (withBleedAndCrop && !options?.docInstance) {
-      doc.rect(0, 30, 91, 1.8, "F");
-    } else {
-      doc.rect(dx, dy + 27 * scale, w, 1.8 * scale, "F");
-    }
+    doc.rect(dx, dy + headerH, w, 1.0 * scale, "F");
 
     // Mozambique Flag Elegant Small Ribbon (Representing national affiliation officially)
-    // Placed in the top right corner
-    const ribbonW = 2.0 * scale;
-    const ribbonH = 1.2 * scale;
-    const ribbonX = dx + w - 12 * scale;
-    const ribbonY = dy + 3.5 * scale;
+    const ribbonW = 1.2 * scale;
+    const ribbonH = 0.8 * scale;
+    const ribbonX = dx + w - 7.5 * scale;
+    const ribbonY = dy + 2.4 * scale;
     // Green, Black, Red, Yellow lines side-by-side
-    doc.setFillColor(0, 150, 100); // Green
+    doc.setFillColor(0, 151, 57); // Green
     doc.rect(ribbonX, ribbonY, ribbonW, ribbonH, "F");
     doc.setFillColor(0, 0, 0); // Black
     doc.rect(ribbonX + ribbonW, ribbonY, ribbonW, ribbonH, "F");
-    doc.setFillColor(220, 30, 50); // Red
+    doc.setFillColor(208, 12, 39); // Red
     doc.rect(ribbonX + 2 * ribbonW, ribbonY, ribbonW, ribbonH, "F");
-    doc.setFillColor(255, 210, 0); // Yellow
+    doc.setFillColor(255, 209, 0); // Yellow
     doc.rect(ribbonX + 3 * ribbonW, ribbonY, ribbonW, ribbonH, "F");
 
-    // Title Texts in the Header (Matching IAFI MINISTÉRIOS and Avante na Fé Internacional)
+    // Centered Logo in the Header with White circular background & Gold border
+    const logoContainerX = dx + w / 2;
+    const logoContainerY = dy + 4.2 * scale;
+    const logoContainerRadius = 2.8 * scale;
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(212, 175, 55); // Gold #D4AF37
+    doc.setLineWidth(0.2 * scale);
+    doc.ellipse(logoContainerX, logoContainerY, logoContainerRadius, logoContainerRadius, "FD");
+
+    // Draw official church logo inside the header container
+    drawVectorChurchLogo(logoContainerX, logoContainerY, 2.3 * scale, false);
+
+    // Title Texts in the Header (Matching ASSEMBLEIA DE DEUS and AFRICANA)
     doc.setTextColor(255, 255, 255);
     doc.setFont("Helvetica", "bold");
-    doc.setFontSize(9 * scale);
-    doc.text("IAFI MINISTÉRIOS", dx + w / 2, dy + 10 * scale, { align: "center" });
+    doc.setFontSize(4.4 * scale);
+    doc.text("ASSEMBLEIA DE DEUS", dx + w / 2, dy + 8.8 * scale, { align: "center" });
 
     doc.setTextColor(212, 175, 55); // Gold #D4AF37
-    doc.setFontSize(6.5 * scale);
+    doc.setFontSize(3.8 * scale);
     doc.setFont("Helvetica", "bold");
-    doc.text("Avante na Fé Internacional", dx + w / 2, dy + 15 * scale, { align: "center" });
+    doc.text("AFRICANA", dx + w / 2, dy + 11.2 * scale, { align: "center" });
 
     // Header subtitle
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(5.5 * scale);
-    doc.setFont("Helvetica", "normal");
-    doc.text("CRACHÁ OFICIAL DE MEMBRO", dx + w / 2, dy + 20 * scale, { align: "center" });
-
-    doc.setTextColor(148, 163, 184); // Slate-400
-    doc.setFontSize(4.2 * scale);
-    doc.setFont("Helvetica", "normal");
-    doc.text("REPÚBLICA DE MOÇAMBIQUE", dx + w / 2, dy + 24 * scale, { align: "center" });
+    doc.setFontSize(2.8 * scale);
+    doc.setFont("Helvetica", "bold");
+    doc.text("CRACHÁ OFICIAL DE MEMBRO", dx + w / 2, dy + 14.5 * scale, { align: "center" });
 
     // 4. PORTRAIT PHOTO FRAME (Circular like UI)
-    let y = dy + 37 * scale;
-    const photoRadius = 13 * scale;
+    const photoY = dy + 23.5 * scale;
+    const photoRadius = 8.5 * scale;
     const photoCenterX = dx + w / 2;
-    const photoCenterY = y + photoRadius;
+    const photoCenterY = photoY + photoRadius;
 
     // Outer golden ring (similar to rounded-full border-2 border-[#D4AF37])
     doc.setDrawColor(212, 175, 55); // Gold #D4AF37
-    doc.setLineWidth(0.6 * scale);
+    doc.setLineWidth(0.4 * scale);
     doc.setFillColor(255, 255, 255);
     doc.ellipse(photoCenterX, photoCenterY, photoRadius, photoRadius, "FD");
 
@@ -2830,7 +2935,7 @@ export default function App() {
       try {
         const base64Photo = await getBase64ImageFromUrl(member.photoUrl);
         doc.saveGraphicsState();
-        doc.ellipse(photoCenterX, photoCenterY, photoRadius - 0.5 * scale, photoRadius - 0.5 * scale, "F");
+        doc.ellipse(photoCenterX, photoCenterY, photoRadius - 0.3 * scale, photoRadius - 0.3 * scale, "F");
         doc.clip();
         doc.addImage(
           base64Photo, 
@@ -2842,225 +2947,308 @@ export default function App() {
         );
         doc.restoreGraphicsState();
       } catch (e) {
-        // Fallback initials inside circular background
-        doc.setFillColor(11, 46, 89); // Royal Blue #0B2E59
-        doc.ellipse(photoCenterX, photoCenterY, photoRadius - 0.5 * scale, photoRadius - 0.5 * scale, "F");
-        doc.setTextColor(212, 175, 55); // Gold #D4AF37
-        doc.setFont("Helvetica", "bold");
-        doc.setFontSize(13 * scale);
-        doc.text(member.name.substring(0, 2).toUpperCase(), photoCenterX, photoCenterY + 4 * scale, { align: "center" });
+        // Fallback minimalist user silhouette inside circular background
+        doc.setFillColor(241, 245, 249); // Background Slate-100 #F1F5F9
+        doc.ellipse(photoCenterX, photoCenterY, photoRadius - 0.3 * scale, photoRadius - 0.3 * scale, "F");
+        
+        doc.setFillColor(148, 163, 184); // Slate-400 for silhouette
+        // Head
+        doc.ellipse(photoCenterX, photoCenterY - 1.8 * scale, 2.0 * scale, 2.0 * scale, "F");
+        // Shoulders
+        doc.saveGraphicsState();
+        doc.ellipse(photoCenterX, photoCenterY, photoRadius - 0.3 * scale, photoRadius - 0.3 * scale, "F");
+        doc.clip();
+        doc.ellipse(photoCenterX, photoCenterY + 5.2 * scale, 5.2 * scale, 3.2 * scale, "F");
+        doc.restoreGraphicsState();
       }
     } else {
-      // Fallback initials inside circular background
-      doc.setFillColor(11, 46, 89); // Royal Blue #0B2E59
-      doc.ellipse(photoCenterX, photoCenterY, photoRadius - 0.5 * scale, photoRadius - 0.5 * scale, "F");
-      doc.setTextColor(212, 175, 55); // Gold #D4AF37
-      doc.setFont("Helvetica", "bold");
-      doc.setFontSize(13 * scale);
-      doc.text(member.name.substring(0, 2).toUpperCase(), photoCenterX, photoCenterY + 4 * scale, { align: "center" });
+      // Fallback minimalist user silhouette inside circular background
+      doc.setFillColor(241, 245, 249); // Background Slate-100 #F1F5F9
+      doc.ellipse(photoCenterX, photoCenterY, photoRadius - 0.3 * scale, photoRadius - 0.3 * scale, "F");
+      
+      doc.setFillColor(148, 163, 184); // Slate-400 for silhouette
+      // Head
+      doc.ellipse(photoCenterX, photoCenterY - 1.8 * scale, 2.0 * scale, 2.0 * scale, "F");
+      // Shoulders
+      doc.saveGraphicsState();
+      doc.ellipse(photoCenterX, photoCenterY, photoRadius - 0.3 * scale, photoRadius - 0.3 * scale, "F");
+      doc.clip();
+      doc.ellipse(photoCenterX, photoCenterY + 5.2 * scale, 5.2 * scale, 3.2 * scale, "F");
+      doc.restoreGraphicsState();
     }
 
-    y += 28 * scale;
+    let y = dy + 44.5 * scale;
 
     // 5. MEMBER NAME WITH OVERHEAD SMALL DESCRIPTION
     doc.setTextColor(148, 163, 184); // Slate-400
     doc.setFont("Helvetica", "bold");
-    doc.setFontSize(4.5 * scale);
+    doc.setFontSize(3.2 * scale);
     doc.text("NOME COMPLETO", dx + w / 2, y, { align: "center" });
 
-    y += 4 * scale;
+    y += 3.0 * scale;
 
     // Display Name in Slate-900 (dynamic size reduction for long names to avoid overflow)
     doc.setTextColor(15, 23, 42); // Slate-900
     doc.setFont("Helvetica", "bold");
     
-    let nameFontSize = 9.5 * scale;
-    if (member.name.length > 25) nameFontSize = 8 * scale;
-    if (member.name.length > 32) nameFontSize = 7 * scale;
+    let nameFontSize = 7.5 * scale;
+    if (member.name.length > 25) nameFontSize = 6.2 * scale;
+    if (member.name.length > 32) nameFontSize = 5.2 * scale;
     doc.setFontSize(nameFontSize);
 
-    const nameLines = doc.splitTextToSize(member.name.toUpperCase(), w - 12 * scale);
+    const nameLines = doc.splitTextToSize(member.name.toUpperCase(), w - 8 * scale);
     doc.text(nameLines, dx + w / 2, y, { align: "center" });
 
-    y += (nameLines.length * 3.8 * scale) + 1 * scale;
+    y += (nameLines.length * 2.8 * scale) + 0.5 * scale;
 
     // Region / Province subtitle with a neat location icon-like marker
     doc.setTextColor(100, 116, 139); // Slate-500
     doc.setFont("Helvetica", "bold");
-    doc.setFontSize(6 * scale);
+    doc.setFontSize(4.4 * scale);
     doc.text("• " + member.region.toUpperCase() + " • " + member.province.toUpperCase() + " •", dx + w / 2, y, { align: "center" });
 
-    y += 4.5 * scale;
+    y += 3.2 * scale;
 
     // 6. POSITION / ROLE PILL BADGE WITH SPACING
+    const pillW = 24 * scale;
+    const pillH = 3.2 * scale;
     doc.setFillColor(11, 46, 89); // Royal Blue #0B2E59
     doc.setDrawColor(212, 175, 55); // Gold #D4AF37
-    doc.setLineWidth(0.25 * scale);
-    doc.roundedRect(dx + w / 2 - 18 * scale, y - 1.6 * scale, 36 * scale, 4.2 * scale, 0.8 * scale, 0.8 * scale, "FD");
+    doc.setLineWidth(0.18 * scale);
+    doc.roundedRect(dx + w / 2 - pillW / 2, y - 1.2 * scale, pillW, pillH, 0.6 * scale, 0.6 * scale, "FD");
 
+    // Draw small golden dot inside the pill on the left
+    doc.setFillColor(212, 175, 55); // Gold #D4AF37
+    doc.ellipse(dx + w / 2 - pillW / 2 + 2 * scale, y + 0.4 * scale, 0.3 * scale, 0.3 * scale, "F");
+
+    // Draw role text centered slightly offset
     doc.setTextColor(212, 175, 55); // Gold #D4AF37
     doc.setFont("Helvetica", "bold");
-    doc.setFontSize(5.8 * scale);
-    const trackedRole = theme.name.toUpperCase().split("").join(" ");
-    doc.text(trackedRole, dx + w / 2, y + 1.2 * scale, { align: "center" });
+    doc.setFontSize(3.2 * scale);
+    doc.text(theme.name.toUpperCase(), dx + w / 2 + 0.8 * scale, y + 0.8 * scale, { align: "center" });
 
-    y += 5.5 * scale;
+    y += 4.0 * scale;
 
-    // 7. STRUCTURED METADATA BLOCK IN AN ELEGANT CARD-IN-CARD FORMAT
-    const metaCardH = 14 * scale;
-    doc.setFillColor(248, 250, 252); // Slate-50
-    doc.setDrawColor(241, 245, 249); // Slate-100
-    doc.setLineWidth(0.2 * scale);
-    doc.roundedRect(dx + 6 * scale, y, w - 12 * scale, metaCardH, 1 * scale, 1 * scale, "FD");
+    // 7. STRUCTURED METADATA GRID (4 SEPARATE ROUNDED CARDS IN 2X2 FORMAT, PERFECTLY CENTERED)
+    const colW = 20.8 * scale;
+    const cardH = 4.8 * scale;
+    const cardGapX = 2.4 * scale;
+    const cardGapY = 1.2 * scale;
+    const gridStartX = dx + (w - (colW * 2 + cardGapX)) / 2; // Centers the grid exactly
+    const gridStartY = y;
 
-    // Grid details
-    const colWidth = (w - 12 * scale) / 2;
-    const cellX1 = dx + 8 * scale;
-    const cellX2 = dx + 6 * scale + colWidth + 2 * scale;
+    const drawBentoCard = (
+      cx: number,
+      cy: number,
+      label: string,
+      value: string,
+      isStatus: boolean = false,
+      statusType?: "active" | "quotas"
+    ) => {
+      // Draw white card background
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(226, 232, 240); // Slate-200 border
+      doc.setLineWidth(0.15 * scale);
+      doc.roundedRect(cx, cy, colW, cardH, 1.0 * scale, 1.0 * scale, "FD");
 
-    // Row 1 inside metadata card
-    doc.setFont("Helvetica", "bold");
-    doc.setFontSize(4.2 * scale);
-    doc.setTextColor(148, 163, 184); // Slate-400
-    doc.text("ID MEMBRO", cellX1, y + 3.2 * scale);
-    doc.text("EMISSÃO", cellX2, y + 3.2 * scale);
+      // Draw label
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(2.6 * scale);
+      doc.setTextColor(148, 163, 184); // Slate-400
+      doc.text(label.toUpperCase(), cx + colW / 2, cy + 1.6 * scale, { align: "center" });
 
-    doc.setFont("Helvetica", "bold");
-    doc.setFontSize(5.8 * scale);
-    doc.setTextColor(11, 46, 89); // Royal Blue #0B2E59
-    doc.text(member.id, cellX1, y + 6.2 * scale);
-    doc.text(new Date(member.createdAt).toLocaleDateString(), cellX2, y + 6.2 * scale);
+      // Draw value
+      if (isStatus) {
+        const textW = doc.getTextWidth(value.toUpperCase());
+        const dotRadius = 0.3 * scale;
+        const dotDiameter = dotRadius * 2;
+        const spacing = 0.6 * scale;
+        const totalW = dotDiameter + spacing + textW;
+        const groupStartX = cx + colW / 2 - totalW / 2;
 
-    // Row 2 inside metadata card
-    doc.setFont("Helvetica", "bold");
-    doc.setFontSize(4.2 * scale);
-    doc.setTextColor(148, 163, 184); // Slate-400
-    doc.text("ESTADO", cellX1, y + 9.5 * scale);
-    doc.text("QUOTAS", cellX2, y + 9.5 * scale);
+        if (statusType === "active") {
+          // Green dot
+          doc.setFillColor(34, 197, 94); // Green-500
+          doc.ellipse(groupStartX + dotRadius, cy + 3.2 * scale, dotRadius, dotRadius, "F");
+          
+          doc.setFont("Helvetica", "bold");
+          doc.setFontSize(3.4 * scale);
+          doc.setTextColor(22, 163, 74); // Green-600
+          doc.text(value.toUpperCase(), groupStartX + dotDiameter + spacing, cy + 3.5 * scale);
+        } else {
+          // Yellow/Gold dot for quotas
+          doc.setFillColor(212, 175, 55); // Gold #D4AF37
+          doc.ellipse(groupStartX + dotRadius, cy + 3.2 * scale, dotRadius, dotRadius, "F");
 
-    doc.setFont("Helvetica", "bold");
-    doc.setFontSize(5.5 * scale);
-    doc.setTextColor(22, 163, 74); // Green-600
-    doc.text("ATIVO", cellX1, y + 12.5 * scale);
-    doc.text("EM DIA", cellX2, y + 12.5 * scale);
+          doc.setFont("Helvetica", "bold");
+          doc.setFontSize(3.4 * scale);
+          doc.setTextColor(180, 140, 30); // Darker Gold/Brown for legibility
+          doc.text(value.toUpperCase(), groupStartX + dotDiameter + spacing, cy + 3.5 * scale);
+        }
+      } else {
+        doc.setFont("Helvetica", "bold");
+        doc.setFontSize(3.5 * scale);
+        doc.setTextColor(11, 46, 89); // Deep Blue #0B2E59
+        doc.text(value, cx + colW / 2, cy + 3.5 * scale, { align: "center" });
+      }
+    };
 
-    y += metaCardH + 3.5 * scale;
+    // Draw Card 1: ID MEMBRO
+    drawBentoCard(gridStartX, gridStartY, "ID MEMBRO", member.id);
 
-    // Horizontal split line separating bottom barcode and verification
+    // Draw Card 2: EMISSÃO
+    drawBentoCard(gridStartX + colW + cardGapX, gridStartY, "EMISSÃO", new Date(member.createdAt).toLocaleDateString());
+
+    // Draw Card 3: ESTADO
+    drawBentoCard(gridStartX, gridStartY + cardH + cardGapY, "ESTADO", "ATIVO", true, "active");
+
+    // Draw Card 4: QUOTAS
+    drawBentoCard(gridStartX + colW + cardGapX, gridStartY + cardH + cardGapY, "QUOTAS", "EM DIA", true, "quotas");
+
+    // 8. BOTTOM FOOTER SECTION WITH SOFT GREY BACKGROUND & ROUNDED CORNERS (fits inside the inner gold frame)
+    const footerH = 13.5 * scale;
+    const footerStartY = dy + h - footerH - innerOffset;
+    
+    doc.setFillColor(248, 250, 252); // Slate-50 #f8fafc
     doc.setDrawColor(226, 232, 240); // Slate-200
     doc.setLineWidth(0.15 * scale);
-    doc.line(dx + 6 * scale, y, dx + w - 6 * scale, y);
+    doc.roundedRect(
+      dx + innerOffset + 0.1 * scale,
+      footerStartY,
+      w - 2 * innerOffset - 0.2 * scale,
+      footerH,
+      1.8 * scale,
+      1.8 * scale,
+      "FD"
+    );
 
-    y += 2.2 * scale;
+    // Draw top separator border line for footer
+    doc.setDrawColor(226, 232, 240); // Slate-200
+    doc.setLineWidth(0.2 * scale);
+    doc.line(
+      dx + innerOffset + 0.1 * scale,
+      footerStartY,
+      dx + w - innerOffset - 0.1 * scale,
+      footerStartY
+    );
 
-    // 8. BOTTOM QR & BARCODE SECTION (Optionally QR, Barcode, or both)
-    const bottomY = y + 1 * scale;
+    const bottomContentY = footerStartY + 2.2 * scale;
+    const usableW = w - 2 * innerOffset;
+    const footerColW = usableW / 2;
 
     if (codeFormat === "both") {
-      // Small column labels
+      // Labels
       doc.setFont("Helvetica", "bold");
-      doc.setFontSize(4.2 * scale);
-      doc.setTextColor(148, 163, 184);
-      doc.text("VALIDAÇÃO SECURE QR", dx + 6 * scale, bottomY);
-      doc.text("ACESSO BIOMÉTRICO", dx + w - 6 * scale, bottomY, { align: "right" });
+      doc.setFontSize(2.6 * scale);
+      doc.setTextColor(148, 163, 184); // Slate-400
+      doc.text("SECURE QR", dx + innerOffset + footerColW / 2, bottomContentY, { align: "center" });
+      doc.text("CÓDIGO DE ACESSO", dx + innerOffset + footerColW + footerColW / 2, bottomContentY, { align: "center" });
 
-      const qrSize = 14 * scale;
-      // Left Column: QR Code
+      // QR Code on Left
+      const qrSize = 7.5 * scale;
+      const qrX = dx + innerOffset + footerColW / 2 - qrSize / 2;
+      const qrY = bottomContentY + 0.8 * scale;
       try {
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(window.location.origin + "/?validate=" + member.id)}`;
         const base64QR = await getBase64ImageFromUrl(qrUrl);
-        doc.addImage(base64QR, "PNG", dx + 6 * scale, bottomY + 1.2 * scale, qrSize, qrSize);
+        doc.addImage(base64QR, "PNG", qrX, qrY, qrSize, qrSize);
       } catch (e) {
-        // Draw fallback QR rectangle
         doc.setDrawColor(226, 232, 240);
-        doc.rect(dx + 6 * scale, bottomY + 1.2 * scale, qrSize, qrSize);
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect(qrX, qrY, qrSize, qrSize, 0.6 * scale, 0.6 * scale, "FD");
         doc.setFont("Helvetica", "normal");
-        doc.setFontSize(4.2 * scale);
+        doc.setFontSize(2.0 * scale);
         doc.setTextColor(148, 163, 184);
-        doc.text("QR-CODE", dx + 6 * scale + qrSize / 2, bottomY + 1.2 * scale + qrSize / 2 + 1 * scale, { align: "center" });
+        doc.text("QR-CODE", qrX + qrSize / 2, qrY + qrSize / 2 + 0.5 * scale, { align: "center" });
       }
 
-      // Right Column: Barcode lines
-      const barcodeStartX = dx + w - 38 * scale;
-      const barcodeY = bottomY + 2 * scale;
-      const barcodeH = 7.5 * scale;
+      // Barcode on Right
+      const barcodeW = 18 * scale;
+      const barcodeH = 4.5 * scale;
+      const barcodeX = dx + innerOffset + footerColW + footerColW / 2 - barcodeW / 2;
+      const barcodeY = bottomContentY + 1.0 * scale;
 
-      doc.setFillColor(15, 23, 42); // Black/Deep Slate lines
-      const lineWeights = [1.5, 0.5, 2, 0.4, 1.2, 1.5, 0.5, 2.2, 1, 0.5, 1.5, 0.4, 1, 2, 0.5, 1.5];
-      let currentX = barcodeStartX;
+      doc.setFillColor(15, 23, 42); // Deep Slate
+      const lineWeights = [1.2, 0.5, 1.8, 0.4, 1.0, 1.2, 0.5, 2.0, 0.8, 0.5, 1.2, 0.4, 0.8, 1.8, 0.5, 1.2];
+      let currentX = barcodeX;
       lineWeights.forEach((wWeight) => {
-        doc.rect(currentX, barcodeY, wWeight * 0.5 * scale, barcodeH, "F");
-        currentX += (wWeight * 0.5 * scale) + 0.4 * scale;
+        const rectW = wWeight * 0.3 * scale;
+        doc.rect(currentX, barcodeY, rectW, barcodeH, "F");
+        currentX += rectW + 0.22 * scale;
       });
 
       // Barcode number centered under the lines
-      const barcodeWidth = currentX - barcodeStartX;
       doc.setTextColor(100, 116, 139); // Slate-500
       doc.setFont("Helvetica", "bold");
-      doc.setFontSize(4.5 * scale);
+      doc.setFontSize(2.8 * scale);
       doc.text(
         member.barcode || "120394102941",
-        barcodeStartX + barcodeWidth / 2,
-        barcodeY + barcodeH + 2.5 * scale,
+        barcodeX + barcodeW / 2,
+        barcodeY + barcodeH + 1.8 * scale,
         { align: "center" }
       );
     } else if (codeFormat === "qr") {
       // Centered QR Code
       doc.setFont("Helvetica", "bold");
-      doc.setFontSize(4.5 * scale);
+      doc.setFontSize(2.6 * scale);
       doc.setTextColor(148, 163, 184);
-      doc.text("VALIDAÇÃO SECURE QR", dx + w / 2, bottomY, { align: "center" });
+      doc.text("SECURE QR", dx + w / 2, bottomContentY, { align: "center" });
 
-      const qrSize = 17 * scale;
+      const qrSize = 8.5 * scale;
       const qrX = dx + w / 2 - qrSize / 2;
+      const qrY = bottomContentY + 0.8 * scale;
       try {
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.origin + "/?validate=" + member.id)}`;
         const base64QR = await getBase64ImageFromUrl(qrUrl);
-        doc.addImage(base64QR, "PNG", qrX, bottomY + 1.5 * scale, qrSize, qrSize);
+        doc.addImage(base64QR, "PNG", qrX, qrY, qrSize, qrSize);
       } catch (e) {
         doc.setDrawColor(226, 232, 240);
-        doc.rect(qrX, bottomY + 1.5 * scale, qrSize, qrSize);
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect(qrX, qrY, qrSize, qrSize, 0.6 * scale, 0.6 * scale, "FD");
         doc.setFont("Helvetica", "normal");
-        doc.setFontSize(4.5 * scale);
+        doc.setFontSize(2.2 * scale);
         doc.setTextColor(148, 163, 184);
-        doc.text("QR-CODE", dx + w / 2, bottomY + 1.5 * scale + qrSize / 2 + 1 * scale, { align: "center" });
+        doc.text("QR-CODE", dx + w / 2, qrY + qrSize / 2 + 0.5 * scale, { align: "center" });
       }
     } else {
       // Centered Barcode
       doc.setFont("Helvetica", "bold");
-      doc.setFontSize(4.5 * scale);
+      doc.setFontSize(2.6 * scale);
       doc.setTextColor(148, 163, 184);
-      doc.text("ACESSO BIOMÉTRICO (CÓDIGO DE BARRAS)", dx + w / 2, bottomY, { align: "center" });
+      doc.text("CÓDIGO DE ACESSO", dx + w / 2, bottomContentY, { align: "center" });
 
-      const barcodeY = bottomY + 2 * scale;
-      const barcodeH = 8.5 * scale;
+      const barcodeH = 5 * scale;
+      const barcodeY = bottomContentY + 1.0 * scale;
       
-      // Calculate total barcode width to center it
-      const lineWeights = [1.5, 0.5, 2, 0.4, 1.2, 1.5, 0.5, 2.2, 1, 0.5, 1.5, 0.4, 1, 2, 0.5, 1.5, 1, 1.5, 0.5, 2];
+      const lineWeights = [1.2, 0.5, 1.8, 0.4, 1.0, 1.2, 0.5, 2.0, 0.8, 0.5, 1.2, 0.4, 0.8, 1.8, 0.5, 1.2, 0.8, 1.2, 0.5, 1.8];
       let totalBarcodeW = 0;
       lineWeights.forEach((wWeight) => {
-        totalBarcodeW += (wWeight * 0.55 * scale) + 0.4 * scale;
+        totalBarcodeW += (wWeight * 0.3 * scale) + 0.22 * scale;
       });
       
       const barcodeStartX = dx + w / 2 - totalBarcodeW / 2;
       let currentX = barcodeStartX;
       doc.setFillColor(15, 23, 42);
       lineWeights.forEach((wWeight) => {
-        doc.rect(currentX, barcodeY, wWeight * 0.55 * scale, barcodeH, "F");
-        currentX += (wWeight * 0.55 * scale) + 0.4 * scale;
+        const rectW = wWeight * 0.3 * scale;
+        doc.rect(currentX, barcodeY, rectW, barcodeH, "F");
+        currentX += rectW + 0.22 * scale;
       });
 
       // Barcode number centered under the lines
       doc.setTextColor(100, 116, 139);
       doc.setFont("Helvetica", "bold");
-      doc.setFontSize(5 * scale);
+      doc.setFontSize(2.8 * scale);
       doc.text(
         member.barcode || "120394102941",
         dx + w / 2,
-        barcodeY + barcodeH + 2.8 * scale,
+        barcodeY + barcodeH + 1.8 * scale,
         { align: "center" }
       );
     }
+
+    // 12. DRAW THE ELEGANT GOLDEN FRAMING BORDER (sits crisply on top of all elements)
+    drawInnerGoldBorder();
 
     // 9. DRAW SINGLE-BADGE CROP MARKS (if requested)
     if (withBleedAndCrop && !options?.docInstance) {
@@ -3072,16 +3260,16 @@ export default function App() {
       doc.line(0, 3, 2, 3);
 
       // Top-Right
-      doc.line(88, 0, 88, 2);
-      doc.line(89, 3, 91, 3);
+      doc.line(57, 0, 57, 2);
+      doc.line(58, 3, 60, 3);
 
       // Bottom-Left
-      doc.line(3, 124, 3, 126);
-      doc.line(0, 123, 2, 123);
+      doc.line(3, 90, 3, 92);
+      doc.line(0, 89, 2, 89);
 
       // Bottom-Right
-      doc.line(88, 124, 88, 126);
-      doc.line(89, 123, 91, 123);
+      doc.line(57, 90, 57, 92);
+      doc.line(58, 89, 60, 89);
     }
 
     if (download && !options?.docInstance) {
@@ -3113,27 +3301,27 @@ export default function App() {
         format: "a4"
       });
 
-      const scale = 0.55;
-      const w = 85 * scale;
-      const h = 120 * scale;
-      const colGap = 10;
-      const rowGap = 4;
-      const totalW = 2 * w + colGap;
-      const totalH = 4 * h + 3 * rowGap;
+      const scale = 1;
+      const w = 54 * scale;
+      const h = 86 * scale;
+      const colGap = 8;
+      const rowGap = 8;
+      const totalW = 3 * w + 2 * colGap;
+      const totalH = 3 * h + 2 * rowGap;
       const leftMargin = (210 - totalW) / 2;
       const topMargin = (297 - totalH) / 2;
 
       for (let i = 0; i < activeMembersToPrint.length; i++) {
         const member = activeMembersToPrint[i];
-        const pageIndex = Math.floor(i / 8);
-        const badgeIndexOnPage = i % 8;
+        const pageIndex = Math.floor(i / 9);
+        const badgeIndexOnPage = i % 9;
 
         if (pageIndex > 0 && badgeIndexOnPage === 0) {
           doc.addPage();
         }
 
-        const col = badgeIndexOnPage % 2;
-        const row = Math.floor(badgeIndexOnPage / 2);
+        const col = badgeIndexOnPage % 3;
+        const row = Math.floor(badgeIndexOnPage / 3);
 
         const dx = leftMargin + col * (w + colGap);
         const dy = topMargin + row * (h + rowGap);
@@ -3173,7 +3361,7 @@ export default function App() {
       }
 
       doc.save(`crachas_em_lote_a4_${Date.now()}.pdf`);
-      addLog("Administrador", `Exportou com sucesso ${activeMembersToPrint.length} crachás em formato A4 (8 por página)`, "success");
+      addLog("Administrador", `Exportou com sucesso ${activeMembersToPrint.length} crachás em formato A4 no tamanho real 54x86mm (9 por página)`, "success");
     } catch (err: any) {
       console.error("Erro ao gerar PDF em lote:", err);
       alert("Houve um erro técnico ao gerar o PDF em lote: " + (err.message || err));
@@ -6618,7 +6806,7 @@ export default function App() {
                           
                           {/* Crachá container */}
                           <div 
-                            className="w-80 h-[585px] bg-white rounded-[22px] shadow-2xl border border-slate-200 flex flex-col items-center relative overflow-hidden transition-all duration-500 hover:-translate-y-1.5 group cursor-default select-none"
+                            className="w-80 h-[585px] bg-white rounded-[32px] shadow-2xl border border-slate-200 flex flex-col items-center relative overflow-hidden transition-all duration-500 hover:-translate-y-1.5 group cursor-default select-none"
                             style={{ 
                               backgroundImage: "radial-gradient(circle, rgba(11, 46, 89, 0.05) 1.2px, transparent 1.2px)", 
                               backgroundSize: "16px 16px" 
@@ -6633,47 +6821,47 @@ export default function App() {
                             </div>
 
                             {/* Elegant Inner Border Offset with custom gold color */}
-                            <div className="absolute inset-2.5 border-2 border-[#D4AF37]/35 rounded-[18px] pointer-events-none z-10 opacity-60 transition-all duration-500 group-hover:scale-[0.99]"></div>
+                            <div className="absolute inset-3 border border-[#D4AF37]/30 rounded-[24px] pointer-events-none z-10 opacity-60 transition-all duration-500 group-hover:scale-[0.99]"></div>
 
                             {/* 1. PREMIUM HEADER BLOCK (Base: Dark Blue #0B2E59 & Gold #D4AF37) */}
-                            <div className="w-full bg-[#0B2E59] px-4 pt-5 pb-3.5 flex flex-col items-center relative text-center shadow-lg z-20 border-b-2 border-[#D4AF37]">
+                            <div className="w-full bg-[#0B2E59] px-4 pt-6 pb-4.5 flex flex-col items-center relative text-center shadow-md z-20 border-b-2 border-[#D4AF37]">
                               {/* Mozambique Flag Mini Official Ribbon */}
-                              <div className="absolute top-3.5 right-4 flex h-1.5 rounded overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
-                                <div className="w-3 bg-emerald-600"></div>
+                              <div className="absolute top-3.5 right-4 flex h-2 rounded-full overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
+                                <div className="w-3 bg-[#009739]"></div>
                                 <div className="w-3 bg-black"></div>
-                                <div className="w-3 bg-red-600"></div>
-                                <div className="w-3 bg-amber-400"></div>
+                                <div className="w-3 bg-[#D00C27]"></div>
+                                <div className="w-3 bg-[#FFD100]"></div>
                               </div>
 
                               {/* Centered Church Logo with golden container shadow */}
-                              <div className="bg-white/10 p-1 rounded-full border border-[#D4AF37]/40 mb-2">
-                                <ChurchLogo className="w-10 h-10" />
+                              <div className="bg-white p-0.5 rounded-full border-2 border-[#D4AF37] mb-2.5 shadow-md flex items-center justify-center">
+                                <ChurchLogo className="w-11 h-11" />
                               </div>
 
-                              <h3 className="text-[10px] font-black tracking-[0.14em] text-white uppercase leading-none font-sans">IAFI MINISTÉRIOS</h3>
-                              <h3 className="text-[9px] font-bold tracking-[0.11em] text-[#D4AF37] uppercase mt-0.5 leading-none font-sans">Avante na Fé Internacional</h3>
+                              <h3 className="text-[11px] font-black tracking-[0.16em] text-white uppercase leading-none font-sans">ASSEMBLEIA DE DEUS</h3>
+                              <h3 className="text-[10px] font-extrabold tracking-[0.12em] text-[#D4AF37] uppercase mt-1 leading-none font-sans">AFRICANA</h3>
                               
-                              <p className="text-[7.5px] font-bold tracking-[0.18em] text-blue-200 mt-2 uppercase font-mono">
+                              <p className="text-[7.5px] font-bold tracking-[0.2em] text-blue-200 mt-2.5 uppercase font-sans">
                                 CRACHÁ OFICIAL DE MEMBRO
                               </p>
                             </div>
 
                             {/* 2. PHOTO PORTRAIT FRAME (Larger & Centered) */}
-                            <div className="relative mt-5 z-20">
+                            <div className="relative mt-5.5 z-20">
                               {/* Curved frame with border #D4AF37 and royal blue shadow */}
                               <div 
                                 className="w-[124px] h-[124px] rounded-full bg-white border-2 p-1 shadow-lg transition-transform duration-500 group-hover:scale-105 overflow-hidden flex items-center justify-center"
                                 style={{ 
                                   borderColor: "#D4AF37",
-                                  boxShadow: "0 10px 25px -5px rgba(11, 46, 89, 0.2), 0 8px 10px -6px rgba(11, 46, 89, 0.2)"
+                                  boxShadow: "0 10px 25px -5px rgba(11, 46, 89, 0.15), 0 8px 10px -6px rgba(11, 46, 89, 0.15)"
                                 }}
                               >
-                                <div className="w-full h-full rounded-full bg-slate-50 overflow-hidden relative">
+                                <div className="w-full h-full rounded-full bg-[#F1F5F9] overflow-hidden relative">
                                   {currentUser.photoUrl ? (
                                     <img src={currentUser.photoUrl} alt="Foto Membro" className="w-full h-full object-cover" />
                                   ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-slate-100 text-[#0B2E59]/40">
-                                      <User className="w-14 h-14" />
+                                    <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400">
+                                      <User className="w-14 h-14 stroke-[1.5]" />
                                     </div>
                                   )}
                                 </div>
@@ -6681,47 +6869,47 @@ export default function App() {
                             </div>
 
                             {/* 3. NAME & METADATA COLUMN */}
-                            <div className="w-full px-5 flex flex-col items-center mt-3 z-20 text-center">
-                              {/* Member Name (Most prominent element after photo) */}
-                              <h3 className="text-base font-black text-[#0B2E59] leading-tight mt-0.5 uppercase tracking-tight max-w-[260px] line-clamp-2">
+                            <div className="w-full px-5 flex flex-col items-center mt-3.5 z-20 text-center">
+                              {/* Member Name */}
+                              <h3 className="text-[19px] font-extrabold text-[#0B2E59] leading-tight uppercase tracking-tight max-w-[260px] line-clamp-1 font-sans">
                                 {currentUser.name}
                               </h3>
                               
-                              <p className="text-[8.5px] text-slate-500 font-bold mt-1 uppercase tracking-widest font-mono">
+                              <p className="text-[8.5px] text-[#4A5D78] font-bold mt-1 uppercase tracking-[0.14em] font-sans">
                                 • {currentUser.region.toUpperCase()} • {currentUser.province.toUpperCase()} •
                               </p>
 
-                              {/* Institutional "MEMBRO" Role Badge (not a button) */}
-                              <div className="mt-2.5">
+                              {/* Institutional "MEMBRO" Role Badge */}
+                              <div className="mt-3">
                                 <span 
-                                  className="inline-flex items-center gap-1.5 px-4.5 py-1 rounded-full uppercase tracking-[0.2em] text-[9px] font-black bg-[#0B2E59] text-[#D4AF37] border border-[#D4AF37]/50 shadow-sm"
+                                  className="inline-flex items-center gap-2 px-5 py-1.5 rounded-full uppercase tracking-[0.16em] text-[10px] font-black bg-[#0B2E59] text-[#D4AF37] border border-[#D4AF37] shadow-md"
                                 >
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-pulse"></span>
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]"></span>
                                   {getPositionTheme(currentUser.role).name}
                                 </span>
                               </div>
 
                               {/* 4. DETAILS GRID (Organized in 2 columns of cards) */}
-                              <div className="w-full grid grid-cols-2 gap-2.5 mt-4 text-left">
-                                <div className="bg-slate-50/85 backdrop-blur-[1px] border border-slate-150 rounded-xl p-2.5 shadow-xs hover:border-[#2B78FF]/30 transition">
-                                  <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">ID Membro</p>
-                                  <p className="text-xs font-black font-mono text-[#0B2E59] leading-none mt-0.5">{currentUser.id}</p>
+                              <div className="w-full grid grid-cols-2 gap-3 mt-4.5 px-1">
+                                <div className="bg-white border border-slate-200 rounded-[18px] p-3 shadow-xs flex flex-col justify-center min-h-[52px] hover:border-[#0B2E59]/20 transition-all duration-300">
+                                  <p className="text-[7.5px] text-slate-400 font-bold uppercase tracking-widest leading-none font-sans">ID Membro</p>
+                                  <p className="text-[12.5px] font-black font-sans text-[#0B2E59] leading-none mt-1.5">{currentUser.id}</p>
                                 </div>
-                                <div className="bg-slate-50/85 backdrop-blur-[1px] border border-slate-150 rounded-xl p-2.5 shadow-xs hover:border-[#2B78FF]/30 transition">
-                                  <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">Emissão</p>
-                                  <p className="text-xs font-bold text-[#0B2E59]/80 leading-none font-mono mt-0.5">{new Date(currentUser.createdAt).toLocaleDateString()}</p>
+                                <div className="bg-white border border-slate-200 rounded-[18px] p-3 shadow-xs flex flex-col justify-center min-h-[52px] hover:border-[#0B2E59]/20 transition-all duration-300">
+                                  <p className="text-[7.5px] text-slate-400 font-bold uppercase tracking-widest leading-none font-sans">Emissão</p>
+                                  <p className="text-[12.5px] font-black font-sans text-[#0B2E59] leading-none mt-1.5">{new Date(currentUser.createdAt).toLocaleDateString()}</p>
                                 </div>
-                                <div className="bg-slate-50/85 backdrop-blur-[1px] border border-slate-150 rounded-xl p-2.5 shadow-xs hover:border-[#2B78FF]/30 transition">
-                                  <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">Estado</p>
-                                  <p className="text-[10px] font-black text-emerald-600 leading-none uppercase tracking-wider flex items-center gap-1 mt-0.5">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                                <div className="bg-white border border-slate-200 rounded-[18px] p-3 shadow-xs flex flex-col justify-center min-h-[52px] hover:border-[#0B2E59]/20 transition-all duration-300">
+                                  <p className="text-[7.5px] text-slate-400 font-bold uppercase tracking-widest leading-none font-sans">Estado</p>
+                                  <p className="text-[11px] font-black text-emerald-600 leading-none uppercase tracking-wider flex items-center gap-1.5 mt-1.5 font-sans">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
                                     Ativo
                                   </p>
                                 </div>
-                                <div className="bg-slate-50/85 backdrop-blur-[1px] border border-slate-150 rounded-xl p-2.5 shadow-xs hover:border-[#2B78FF]/30 transition">
-                                  <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">Quotas</p>
-                                  <p className="text-[10px] font-black text-emerald-600 leading-none uppercase tracking-wider flex items-center gap-1 mt-0.5">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] inline-block"></span>
+                                <div className="bg-white border border-slate-200 rounded-[18px] p-3 shadow-xs flex flex-col justify-center min-h-[52px] hover:border-[#0B2E59]/20 transition-all duration-300">
+                                  <p className="text-[7.5px] text-slate-400 font-bold uppercase tracking-widest leading-none font-sans">Quotas</p>
+                                  <p className="text-[11px] font-black text-[#D4AF37] leading-none uppercase tracking-wider flex items-center gap-1.5 mt-1.5 font-sans">
+                                    <span className="w-2 h-2 rounded-full bg-[#D4AF37] inline-block"></span>
                                     Em Dia
                                   </p>
                                 </div>
@@ -6730,11 +6918,11 @@ export default function App() {
 
                             {/* 5. ELEGANT FOOTER (QR Left & Wide Barcode Right, dynamically selected) */}
                             {badgeCodeOption === "both" && (
-                              <div className="w-full mt-auto px-5 pb-5 pt-3 bg-[#0B2E59]/5 border-t border-slate-100 flex items-center justify-between gap-3.5 z-20">
+                              <div className="w-full mt-auto px-5 pb-5 pt-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-4 z-20 rounded-b-[32px]">
                                 {/* QR Column */}
                                 <div className="flex flex-col items-start gap-1">
-                                  <span className="text-[7px] font-black text-slate-400 uppercase tracking-wider font-mono">Secure QR</span>
-                                  <div className="w-12 h-12 bg-white border border-[#D4AF37]/30 rounded-lg p-1.5 flex items-center justify-center shadow-xs hover:scale-105 transition-transform duration-300">
+                                  <span className="text-[7px] font-extrabold text-slate-400 uppercase tracking-[0.15em] font-sans">Secure QR</span>
+                                  <div className="w-12 h-12 bg-white border border-slate-200 rounded-lg p-1 flex items-center justify-center shadow-xs hover:scale-105 transition-transform duration-300">
                                     <img 
                                       src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${window.location.origin}/?validate=${currentUser.id}`} 
                                       alt="Verification QR" 
@@ -6745,23 +6933,23 @@ export default function App() {
 
                                 {/* Barcode Column */}
                                 <div className="flex-1 flex flex-col items-end gap-1">
-                                  <span className="text-[7px] font-black text-slate-400 uppercase tracking-wider font-mono">Código de Acesso</span>
-                                  <div className="w-full bg-white border border-slate-200/80 rounded-lg p-1.5 flex flex-col items-center justify-center shadow-xs">
+                                  <span className="text-[7px] font-extrabold text-slate-400 uppercase tracking-[0.15em] font-sans">Código de Acesso</span>
+                                  <div className="w-full bg-white border border-slate-200 rounded-xl p-2.5 flex flex-col items-center justify-center shadow-xs">
                                     <div className="h-5 flex gap-[1.2px] items-end justify-center w-full opacity-90">
                                       {[2,1,3,1,2,1,4,1,1,3,1,2,1,1,1,2,1,3,1,2,1.5,1,2].map((w, i) => (
-                                        <div key={i} className="bg-slate-900 h-full flex-1 max-w-[2px]" style={{ minWidth: '1px' }}></div>
+                                        <div key={i} className="bg-slate-900 h-full flex-1 max-w-[2.2px]" style={{ minWidth: '1px' }}></div>
                                       ))}
                                     </div>
-                                    <p className="text-[7.5px] text-[#0B2E59] font-black font-mono mt-0.5 tracking-[0.18em]">{currentUser.barcode || "120394102941"}</p>
+                                    <p className="text-[7.5px] text-[#0B2E59] font-bold font-sans mt-1 tracking-[0.25em]">{currentUser.barcode || "177046147516"}</p>
                                   </div>
                                 </div>
                               </div>
                             )}
 
                             {badgeCodeOption === "qr" && (
-                              <div className="w-full mt-auto px-5 pb-5 pt-3 bg-[#0B2E59]/5 border-t border-slate-100 flex flex-col items-center justify-center gap-1 z-20">
-                                <span className="text-[7px] font-black text-slate-400 uppercase tracking-wider font-mono text-center">Secure QR</span>
-                                <div className="w-16 h-16 bg-white border border-[#D4AF37]/30 rounded-lg p-1.5 flex items-center justify-center shadow-xs hover:scale-105 transition-transform duration-300">
+                              <div className="w-full mt-auto px-5 pb-5 pt-3.5 bg-slate-50 border-t border-slate-200 flex flex-col items-center justify-center gap-1 z-20 rounded-b-[32px]">
+                                <span className="text-[7px] font-extrabold text-slate-400 uppercase tracking-[0.15em] font-sans text-center">Secure QR</span>
+                                <div className="w-16 h-16 bg-white border border-slate-200 rounded-lg p-1 flex items-center justify-center shadow-xs hover:scale-105 transition-transform duration-300">
                                   <img 
                                     src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${window.location.origin}/?validate=${currentUser.id}`} 
                                     alt="Verification QR" 
@@ -6772,15 +6960,15 @@ export default function App() {
                             )}
 
                             {badgeCodeOption === "barcode" && (
-                              <div className="w-full mt-auto px-5 pb-5 pt-3 bg-[#0B2E59]/5 border-t border-slate-100 flex flex-col items-center justify-center gap-1 z-20">
-                                <span className="text-[7px] font-black text-slate-400 uppercase tracking-wider font-mono text-center">Código de Acesso</span>
-                                <div className="w-48 bg-white border border-slate-200/80 rounded-lg p-2 flex flex-col items-center justify-center shadow-xs">
+                              <div className="w-full mt-auto px-5 pb-5 pt-3.5 bg-slate-50 border-t border-slate-200 flex flex-col items-center justify-center gap-1 z-20 rounded-b-[32px]">
+                                <span className="text-[7px] font-extrabold text-slate-400 uppercase tracking-[0.15em] font-sans text-center">Código de Acesso</span>
+                                <div className="w-48 bg-white border border-slate-200 rounded-xl p-2.5 flex flex-col items-center justify-center shadow-xs">
                                   <div className="h-6 flex gap-[1.5px] items-end justify-center w-full opacity-90">
                                     {[2,1,3,1,2,1,4,1,1,3,1,2,1,1,1,2,1,3,1,2,1.5,1,2,1,3].map((w, i) => (
-                                      <div key={i} className="bg-slate-900 h-full flex-1 max-w-[2px]" style={{ minWidth: '1px' }}></div>
+                                      <div key={i} className="bg-slate-900 h-full flex-1 max-w-[2.2px]" style={{ minWidth: '1px' }}></div>
                                     ))}
                                   </div>
-                                  <p className="text-[8px] text-[#0B2E59] font-black font-mono mt-1 tracking-[0.2em]">{currentUser.barcode || "120394102941"}</p>
+                                  <p className="text-[8px] text-[#0B2E59] font-bold font-sans mt-1.5 tracking-[0.25em]">{currentUser.barcode || "177046147516"}</p>
                                 </div>
                               </div>
                             )}
@@ -6794,7 +6982,7 @@ export default function App() {
                                 addLog(currentUser.name, "Descarregou crachá digital oficial em PDF", "success");
                               }}
                               className="flex items-center gap-2 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2.5 rounded-xl transition cursor-pointer active:scale-95 shadow-sm"
-                              title="Descarregar crachá no tamanho padrão vertical (85x120mm)"
+                              title="Descarregar crachá no tamanho padrão vertical PVC (54x86mm)"
                             >
                               <Printer className="w-4 h-4" />
                               Crachá Padrão
@@ -6806,7 +6994,7 @@ export default function App() {
                                 addLog(currentUser.name, "Descarregou crachá com sangria e marcas de corte em PDF", "success");
                               }}
                               className="flex items-center gap-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-4 py-2.5 rounded-xl transition cursor-pointer active:scale-95 shadow-sm animate-pulse-subtle"
-                              title="Descarregar crachá com margens de sangria de 3mm e marcas de corte (91x126mm) para impressão profissional em PVC"
+                              title="Descarregar crachá com margens de sangria de 3mm e marcas de corte (60x92mm) para impressão profissional em PVC"
                             >
                               <Scissors className="w-4 h-4" />
                               Crachá PVC (Sangria)
@@ -7404,7 +7592,7 @@ export default function App() {
                               addLog(scannedResult.name, "Imprimiu/Descarregou crachá oficial pelo portal de validação", "success");
                             }}
                             className="py-2.5 px-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition flex items-center justify-center gap-1.5"
-                            title="Descarregar crachá no tamanho padrão vertical (85x120mm)"
+                            title="Descarregar crachá no tamanho padrão vertical PVC (54x86mm)"
                           >
                             <Printer className="w-3.5 h-3.5" />
                             Crachá Padrão
@@ -7416,7 +7604,7 @@ export default function App() {
                               addLog(scannedResult.name, "Imprimiu/Descarregou crachá com sangria pelo portal de validação", "success");
                             }}
                             className="py-2.5 px-3 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold hover:bg-indigo-100 transition flex items-center justify-center gap-1.5"
-                            title="Descarregar crachá com margens de sangria de 3mm e marcas de corte (91x126mm)"
+                            title="Descarregar crachá com margens de sangria de 3mm e marcas de corte (60x92mm)"
                           >
                             <Scissors className="w-3.5 h-3.5" />
                             PVC (Sangria)
@@ -7472,18 +7660,61 @@ export default function App() {
                 <div>
                   <div className="flex items-center gap-3">
                     <h2 className="text-3xl font-black text-slate-950 dark:text-white transition-colors">Painel Administrativo OST Pay</h2>
-                    <button
-                      onClick={() => setAdminDarkMode(!adminDarkMode)}
-                      className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 transition shadow-xs cursor-pointer flex items-center justify-center shrink-0"
-                      title={adminDarkMode ? "Mudar para Modo Claro" : "Mudar para Modo Escuro"}
-                      id="admin-dark-mode-toggle"
-                    >
-                      {adminDarkMode ? (
-                        <Sun className="w-4 h-4 text-amber-500" />
-                      ) : (
-                        <Moon className="w-4 h-4 text-indigo-600" />
-                      )}
-                    </button>
+                    <div className="relative flex items-center">
+                      <button
+                        onClick={() => setAdminDarkMode(!adminDarkMode)}
+                        onMouseEnter={() => setShowToggleTooltip(true)}
+                        onMouseLeave={() => setShowToggleTooltip(false)}
+                        onFocus={() => setShowToggleTooltip(true)}
+                        onBlur={() => setShowToggleTooltip(false)}
+                        className={`relative w-16 h-9 rounded-full border shadow-inner cursor-pointer p-1 flex items-center shrink-0 select-none active:scale-90 contrast-125 ${
+                          adminDarkMode 
+                            ? "bg-white border-slate-300" 
+                            : "bg-black border-slate-800"
+                        }`}
+                        style={{ transition: "all 0.3s ease, transform 0.1s ease" }}
+                        title={adminDarkMode ? "Mudar para Modo Claro" : "Mudar para Modo Escuro"}
+                        id="admin-dark-mode-toggle"
+                      >
+                        {/* Background icons */}
+                        <div className="absolute inset-x-0 inset-y-0 flex justify-between items-center px-2 pointer-events-none">
+                          <Moon className={`w-3.5 h-3.5 ${adminDarkMode ? "text-slate-300" : "text-indigo-400"} ${systemThemePulse ? "animate-pulse" : ""}`} style={{ transition: "all 0.3s ease" }} />
+                          <Sun className={`w-3.5 h-3.5 ${adminDarkMode ? "text-amber-600" : "text-slate-700"} ${systemThemePulse ? "animate-pulse" : ""}`} style={{ transition: "all 0.3s ease" }} />
+                        </div>
+
+                        {/* Moving indicator */}
+                        <motion.div
+                          layout
+                          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                          className={`w-7 h-7 rounded-full flex items-center justify-center shadow-md z-10 ${
+                            adminDarkMode 
+                              ? "bg-slate-950 text-amber-500 ml-auto" 
+                              : "bg-white text-indigo-600"
+                          }`}
+                          style={{ transition: "background-color 0.3s ease, color 0.3s ease" }}
+                        >
+                          {adminDarkMode ? (
+                            <Sun className={`w-3.5 h-3.5 text-amber-500 ${systemThemePulse ? "animate-pulse" : ""}`} style={{ transition: "all 0.3s ease" }} />
+                          ) : (
+                            <Moon className={`w-3.5 h-3.5 text-indigo-600 ${systemThemePulse ? "animate-pulse" : ""}`} style={{ transition: "all 0.3s ease" }} />
+                          )}
+                        </motion.div>
+                      </button>
+                      <AnimatePresence>
+                        {showToggleTooltip && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 5, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 5, scale: 0.95 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 text-[10px] font-bold text-white bg-slate-900 dark:bg-slate-800 rounded-lg shadow-md whitespace-nowrap z-50 pointer-events-none border border-slate-700/50"
+                          >
+                            Alternar modo de tema (Sistema: {typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches ? "Escuro" : "Claro"})
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-800"></div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 transition-colors">Gestão centralizada de membros, aprovação de quotas bancárias e relatórios fiscais.</p>
                 </div>
@@ -12188,23 +12419,23 @@ export default function App() {
       {/* ======================================= */}
       {selectedBadge && (
         <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 md:p-8 shadow-2xl relative border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white transition-colors animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 rounded-[28px] max-w-[360px] w-full p-4.5 shadow-2xl relative border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white transition-colors animate-in fade-in duration-150">
             <button 
               onClick={() => setSelectedBadge(null)}
-              className="absolute top-5 right-5 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="absolute top-4 right-4 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="space-y-4 flex flex-col items-center">
+            <div className="space-y-3 flex flex-col items-center">
               <div className="text-center">
-                <h3 className="text-lg font-black text-[#0B2E59] dark:text-blue-400">Gerador de Crachá Oficial</h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">Membro: <strong className="text-slate-800 dark:text-slate-200">{selectedBadge.name}</strong> • ID: {selectedBadge.id}</p>
+                <h3 className="text-base font-black text-[#0B2E59] dark:text-blue-400 leading-tight">Gerador de Crachá Oficial</h3>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Membro: <strong className="text-slate-800 dark:text-slate-200">{selectedBadge.name}</strong> • ID: {selectedBadge.id}</p>
               </div>
 
               {/* Live Preview of the Badge */}
               <div 
-                className="w-80 h-[585px] bg-white rounded-[22px] shadow-xl border border-slate-200 flex flex-col items-center relative overflow-hidden transition-all duration-300 select-none mx-auto text-slate-900"
+                className="w-80 h-[585px] bg-white rounded-[32px] shadow-2xl border border-slate-200 flex flex-col items-center relative overflow-hidden transition-all duration-300 select-none mx-auto text-slate-900 animate-in fade-in zoom-in-95 duration-200"
                 style={{ 
                   backgroundImage: "radial-gradient(circle, rgba(11, 46, 89, 0.05) 1.2px, transparent 1.2px)", 
                   backgroundSize: "16px 16px" 
@@ -12216,45 +12447,46 @@ export default function App() {
                 </div>
 
                 {/* Elegant Inner Border Offset with custom gold color */}
-                <div className="absolute inset-2.5 border-2 border-[#D4AF37]/35 rounded-[18px] pointer-events-none z-10 opacity-60"></div>
+                <div className="absolute inset-3 border border-[#D4AF37]/30 rounded-[24px] pointer-events-none z-10 opacity-60"></div>
 
                 {/* 1. PREMIUM HEADER BLOCK */}
-                <div className="w-full bg-[#0B2E59] px-4 pt-5 pb-3.5 flex flex-col items-center relative text-center shadow-lg z-20 border-b-2 border-[#D4AF37]">
+                <div className="w-full bg-[#0B2E59] px-4 pt-6 pb-4.5 flex flex-col items-center relative text-center shadow-md z-20 border-b-2 border-[#D4AF37]">
                   {/* Mozambique Flag Mini Official Ribbon */}
-                  <div className="absolute top-3.5 right-4 flex h-1.5 rounded overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
-                    <div className="w-3 bg-emerald-600"></div>
+                  <div className="absolute top-3.5 right-4 flex h-2 rounded-full overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
+                    <div className="w-3 bg-[#009739]"></div>
                     <div className="w-3 bg-black"></div>
-                    <div className="w-3 bg-red-600"></div>
-                    <div className="w-3 bg-amber-400"></div>
+                    <div className="w-3 bg-[#D00C27]"></div>
+                    <div className="w-3 bg-[#FFD100]"></div>
                   </div>
 
-                  <div className="bg-white/10 p-1 rounded-full border border-[#D4AF37]/40 mb-2">
-                    <ChurchLogo className="w-10 h-10" />
+                  {/* Centered Church Logo with golden container shadow */}
+                  <div className="bg-white p-0.5 rounded-full border-2 border-[#D4AF37] mb-2.5 shadow-md flex items-center justify-center">
+                    <ChurchLogo className="w-11 h-11" />
                   </div>
 
-                  <h3 className="text-[10px] font-black tracking-[0.14em] text-white uppercase leading-none font-sans">IAFI MINISTÉRIOS</h3>
-                  <h3 className="text-[9px] font-bold tracking-[0.11em] text-[#D4AF37] uppercase mt-0.5 leading-none font-sans">Avante na Fé Internacional</h3>
+                  <h3 className="text-[11px] font-black tracking-[0.16em] text-white uppercase leading-none font-sans">ASSEMBLEIA DE DEUS</h3>
+                  <h3 className="text-[10px] font-extrabold tracking-[0.12em] text-[#D4AF37] uppercase mt-1 leading-none font-sans">AFRICANA</h3>
                   
-                  <p className="text-[7.5px] font-bold tracking-[0.18em] text-blue-200 mt-2 uppercase font-mono">
+                  <p className="text-[7.5px] font-bold tracking-[0.2em] text-blue-200 mt-2.5 uppercase font-sans">
                     CRACHÁ OFICIAL DE MEMBRO
                   </p>
                 </div>
 
                 {/* 2. PHOTO PORTRAIT FRAME */}
-                <div className="relative mt-5 z-20">
+                <div className="relative mt-5.5 z-20">
                   <div 
                     className="w-[124px] h-[124px] rounded-full bg-white border-2 p-1 shadow-lg overflow-hidden flex items-center justify-center"
                     style={{ 
                       borderColor: "#D4AF37",
-                      boxShadow: "0 10px 25px -5px rgba(11, 46, 89, 0.2), 0 8px 10px -6px rgba(11, 46, 89, 0.2)"
+                      boxShadow: "0 10px 25px -5px rgba(11, 46, 89, 0.15), 0 8px 10px -6px rgba(11, 46, 89, 0.15)"
                     }}
                   >
-                    <div className="w-full h-full rounded-full bg-slate-50 overflow-hidden relative">
+                    <div className="w-full h-full rounded-full bg-[#F1F5F9] overflow-hidden relative">
                       {selectedBadge.photoUrl ? (
                         <img src={selectedBadge.photoUrl} alt="Foto Membro" className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-slate-100 text-[#0B2E59]/40">
-                          <User className="w-14 h-14" />
+                        <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400">
+                          <User className="w-14 h-14 stroke-[1.5]" />
                         </div>
                       )}
                     </div>
@@ -12262,45 +12494,45 @@ export default function App() {
                 </div>
 
                 {/* 3. NAME & METADATA COLUMN */}
-                <div className="w-full px-5 flex flex-col items-center mt-3 z-20 text-center">
-                  <h3 className="text-base font-black text-[#0B2E59] leading-tight mt-0.5 uppercase tracking-tight max-w-[260px] line-clamp-2">
+                <div className="w-full px-5 flex flex-col items-center mt-3.5 z-20 text-center">
+                  <h3 className="text-[19px] font-extrabold text-[#0B2E59] leading-tight uppercase tracking-tight max-w-[260px] line-clamp-1 font-sans">
                     {selectedBadge.name}
                   </h3>
                   
-                  <p className="text-[8.5px] text-slate-500 font-bold mt-1 uppercase tracking-widest font-mono">
+                  <p className="text-[8.5px] text-[#4A5D78] font-bold mt-1 uppercase tracking-[0.14em] font-sans">
                     • {selectedBadge.region.toUpperCase()} • {selectedBadge.province.toUpperCase()} •
                   </p>
 
-                  <div className="mt-2.5">
+                  <div className="mt-3">
                     <span 
-                      className="inline-flex items-center gap-1.5 px-4.5 py-1 rounded-full uppercase tracking-[0.2em] text-[9px] font-black bg-[#0B2E59] text-[#D4AF37] border border-[#D4AF37]/50 shadow-sm"
+                      className="inline-flex items-center gap-2 px-5 py-1.5 rounded-full uppercase tracking-[0.16em] text-[10px] font-black bg-[#0B2E59] text-[#D4AF37] border border-[#D4AF37] shadow-md"
                     >
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] animate-pulse"></span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]"></span>
                       {getPositionTheme(selectedBadge.role).name}
                     </span>
                   </div>
 
                   {/* 4. DETAILS GRID */}
-                  <div className="w-full grid grid-cols-2 gap-2.5 mt-4 text-left">
-                    <div className="bg-slate-50/85 backdrop-blur-[1px] border border-slate-150 rounded-xl p-2.5 shadow-xs">
-                      <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">ID Membro</p>
-                      <p className="text-xs font-black font-mono text-[#0B2E59] leading-none mt-0.5">{selectedBadge.id}</p>
+                  <div className="w-full grid grid-cols-2 gap-3 mt-4.5 px-1">
+                    <div className="bg-white border border-slate-200 rounded-[18px] p-3 shadow-xs flex flex-col justify-center min-h-[52px] hover:border-[#0B2E59]/20 transition-all duration-300">
+                      <p className="text-[7.5px] text-slate-400 font-bold uppercase tracking-widest leading-none font-sans">ID Membro</p>
+                      <p className="text-[12.5px] font-black font-sans text-[#0B2E59] leading-none mt-1.5">{selectedBadge.id}</p>
                     </div>
-                    <div className="bg-slate-50/85 backdrop-blur-[1px] border border-slate-150 rounded-xl p-2.5 shadow-xs">
-                      <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">Emissão</p>
-                      <p className="text-xs font-bold text-[#0B2E59]/80 leading-none font-mono mt-0.5">{new Date(selectedBadge.createdAt).toLocaleDateString()}</p>
+                    <div className="bg-white border border-slate-200 rounded-[18px] p-3 shadow-xs flex flex-col justify-center min-h-[52px] hover:border-[#0B2E59]/20 transition-all duration-300">
+                      <p className="text-[7.5px] text-slate-400 font-bold uppercase tracking-widest leading-none font-sans">Emissão</p>
+                      <p className="text-[12.5px] font-black font-sans text-[#0B2E59] leading-none mt-1.5">{new Date(selectedBadge.createdAt).toLocaleDateString()}</p>
                     </div>
-                    <div className="bg-slate-50/85 backdrop-blur-[1px] border border-slate-150 rounded-xl p-2.5 shadow-xs">
-                      <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">Estado</p>
-                      <p className="text-[10px] font-black text-emerald-600 leading-none uppercase tracking-wider flex items-center gap-1 mt-0.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                    <div className="bg-white border border-slate-200 rounded-[18px] p-3 shadow-xs flex flex-col justify-center min-h-[52px] hover:border-[#0B2E59]/20 transition-all duration-300">
+                      <p className="text-[7.5px] text-slate-400 font-bold uppercase tracking-widest leading-none font-sans">Estado</p>
+                      <p className="text-[11px] font-black text-emerald-600 leading-none uppercase tracking-wider flex items-center gap-1.5 mt-1.5 font-sans">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
                         Ativo
                       </p>
                     </div>
-                    <div className="bg-slate-50/85 backdrop-blur-[1px] border border-slate-150 rounded-xl p-2.5 shadow-xs">
-                      <p className="text-[7.5px] text-slate-400 font-black uppercase tracking-wider font-mono">Quotas</p>
-                      <p className="text-[10px] font-black text-emerald-600 leading-none uppercase tracking-wider flex items-center gap-1 mt-0.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] inline-block"></span>
+                    <div className="bg-white border border-slate-200 rounded-[18px] p-3 shadow-xs flex flex-col justify-center min-h-[52px] hover:border-[#0B2E59]/20 transition-all duration-300">
+                      <p className="text-[7.5px] text-slate-400 font-bold uppercase tracking-widest leading-none font-sans">Quotas</p>
+                      <p className="text-[11px] font-black text-[#D4AF37] leading-none uppercase tracking-wider flex items-center gap-1.5 mt-1.5 font-sans">
+                        <span className="w-2 h-2 rounded-full bg-[#D4AF37] inline-block"></span>
                         Em Dia
                       </p>
                     </div>
@@ -12309,10 +12541,10 @@ export default function App() {
 
                 {/* 5. ELEGANT FOOTER */}
                 {modalCodeOption === "both" && (
-                  <div className="w-full mt-auto px-5 pb-5 pt-3 bg-[#0B2E59]/5 border-t border-slate-100 flex items-center justify-between gap-3.5 z-20">
+                  <div className="w-full mt-auto px-5 pb-5 pt-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-4 z-20 rounded-b-[32px]">
                     <div className="flex flex-col items-start gap-1">
-                      <span className="text-[7px] font-black text-slate-400 uppercase tracking-wider font-mono">Secure QR</span>
-                      <div className="w-12 h-12 bg-white border border-[#D4AF37]/30 rounded-lg p-1.5 flex items-center justify-center shadow-xs">
+                      <span className="text-[7px] font-extrabold text-slate-400 uppercase tracking-[0.15em] font-sans">Secure QR</span>
+                      <div className="w-12 h-12 bg-white border border-slate-200 rounded-lg p-1 flex items-center justify-center shadow-xs">
                         <img 
                           src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${window.location.origin}/?validate=${selectedBadge.id}`} 
                           alt="Verification QR" 
@@ -12322,23 +12554,23 @@ export default function App() {
                     </div>
 
                     <div className="flex-1 flex flex-col items-end gap-1">
-                      <span className="text-[7px] font-black text-slate-400 uppercase tracking-wider font-mono">Código de Acesso</span>
-                      <div className="w-full bg-white border border-slate-200/80 rounded-lg p-1.5 flex flex-col items-center justify-center shadow-xs">
+                      <span className="text-[7px] font-extrabold text-slate-400 uppercase tracking-[0.15em] font-sans">Código de Acesso</span>
+                      <div className="w-full bg-white border border-slate-200 rounded-xl p-2.5 flex flex-col items-center justify-center shadow-xs">
                         <div className="h-5 flex gap-[1.2px] items-end justify-center w-full opacity-90">
                           {[2,1,3,1,2,1,4,1,1,3,1,2,1,1,1,2,1,3,1,2,1.5,1,2].map((w, i) => (
-                            <div key={i} className="bg-slate-900 h-full flex-1 max-w-[2px]" style={{ minWidth: '1px' }}></div>
+                            <div key={i} className="bg-slate-900 h-full flex-1 max-w-[2.2px]" style={{ minWidth: '1px' }}></div>
                           ))}
                         </div>
-                        <p className="text-[7.5px] text-[#0B2E59] font-black font-mono mt-0.5 tracking-[0.18em]">{selectedBadge.barcode || "120394102941"}</p>
+                        <p className="text-[7.5px] text-[#0B2E59] font-bold font-sans mt-1 tracking-[0.25em]">{selectedBadge.barcode || "177046147516"}</p>
                       </div>
                     </div>
                   </div>
                 )}
 
                 {modalCodeOption === "qr" && (
-                  <div className="w-full mt-auto px-5 pb-5 pt-3 bg-[#0B2E59]/5 border-t border-slate-100 flex flex-col items-center justify-center gap-1 z-20">
-                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-wider font-mono text-center">Secure QR</span>
-                    <div className="w-16 h-16 bg-white border border-[#D4AF37]/30 rounded-lg p-1.5 flex items-center justify-center shadow-xs">
+                  <div className="w-full mt-auto px-5 pb-5 pt-3.5 bg-slate-50 border-t border-slate-200 flex flex-col items-center justify-center gap-1 z-20 rounded-b-[32px]">
+                    <span className="text-[7px] font-extrabold text-slate-400 uppercase tracking-[0.15em] font-sans text-center">Secure QR</span>
+                    <div className="w-16 h-16 bg-white border border-slate-200 rounded-lg p-1 flex items-center justify-center shadow-xs">
                       <img 
                         src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${window.location.origin}/?validate=${selectedBadge.id}`} 
                         alt="Verification QR" 
@@ -12349,23 +12581,23 @@ export default function App() {
                 )}
 
                 {modalCodeOption === "barcode" && (
-                  <div className="w-full mt-auto px-5 pb-5 pt-3 bg-[#0B2E59]/5 border-t border-slate-100 flex flex-col items-center justify-center gap-1 z-20">
-                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-wider font-mono text-center">Código de Acesso</span>
-                    <div className="w-48 bg-white border border-slate-200/80 rounded-lg p-2 flex flex-col items-center justify-center shadow-xs">
+                  <div className="w-full mt-auto px-5 pb-5 pt-3.5 bg-slate-50 border-t border-slate-200 flex flex-col items-center justify-center gap-1 z-20 rounded-b-[32px]">
+                    <span className="text-[7px] font-extrabold text-slate-400 uppercase tracking-[0.15em] font-sans text-center">Código de Acesso</span>
+                    <div className="w-48 bg-white border border-slate-200 rounded-xl p-2.5 flex flex-col items-center justify-center shadow-xs">
                       <div className="h-6 flex gap-[1.5px] items-end justify-center w-full opacity-90">
                         {[2,1,3,1,2,1,4,1,1,3,1,2,1,1,1,2,1,3,1,2,1.5,1,2,1,3].map((w, i) => (
-                          <div key={i} className="bg-slate-900 h-full flex-1 max-w-[2px]" style={{ minWidth: '1px' }}></div>
+                          <div key={i} className="bg-slate-900 h-full flex-1 max-w-[2.2px]" style={{ minWidth: '1px' }}></div>
                         ))}
                       </div>
-                      <p className="text-[8px] text-[#0B2E59] font-black font-mono mt-1 tracking-[0.2em]">{selectedBadge.barcode || "120394102941"}</p>
+                      <p className="text-[8px] text-[#0B2E59] font-bold font-sans mt-1.5 tracking-[0.25em]">{selectedBadge.barcode || "177046147516"}</p>
                     </div>
                   </div>
                 )}
               </div>
 
               {/* Code Option Selector (Dynamic Controller in Modal) */}
-              <div className="bg-slate-50 dark:bg-slate-950 p-3.5 rounded-2xl border border-slate-150 dark:border-slate-800 space-y-3 max-w-sm w-full mx-auto">
-                <span className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center">Formato de Validação no Crachá</span>
+              <div className="bg-slate-50 dark:bg-slate-950 p-2.5 rounded-2xl border border-slate-150 dark:border-slate-800 space-y-2.5 w-80 mx-auto">
+                <span className="block text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center">Formato de Validação no Crachá</span>
                 <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
                   <button
                     type="button"
@@ -12426,15 +12658,15 @@ export default function App() {
               </div>
 
               {/* Action buttons */}
-              <div className="flex flex-col sm:flex-row gap-2.5 w-full pt-2">
+              <div className="flex flex-col sm:flex-row gap-2 w-80 pt-1">
                 <button 
                   onClick={() => {
                     handleGenerateBadgePDF(selectedBadge, true, { withBleedAndCrop: false, codeFormat: modalCodeOption });
                     addLog(selectedBadge.name, "Administrador descarregou crachá padrão em PDF", "success");
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-400 px-4 py-2.5 rounded-xl transition cursor-pointer active:scale-95 border border-blue-200/50"
+                  className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-400 px-2.5 py-2 rounded-xl transition cursor-pointer active:scale-95 border border-blue-200/50"
                 >
-                  <Printer className="w-4 h-4" /> Crachá Padrão
+                  <Printer className="w-3.5 h-3.5" /> Crachá Padrão
                 </button>
 
                 <button 
@@ -12442,15 +12674,15 @@ export default function App() {
                     handleGenerateBadgePDF(selectedBadge, true, { withBleedAndCrop: true, codeFormat: modalCodeOption });
                     addLog(selectedBadge.name, "Administrador descarregou crachá com sangria em PDF", "success");
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-400 px-4 py-2.5 rounded-xl transition cursor-pointer active:scale-95 border border-indigo-200/50"
+                  className="flex-1 flex items-center justify-center gap-1.5 text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-400 px-2.5 py-2 rounded-xl transition cursor-pointer active:scale-95 border border-indigo-200/50"
                 >
-                  <Scissors className="w-4 h-4" /> PVC (Sangria)
+                  <Scissors className="w-3.5 h-3.5" /> PVC (Sangria)
                 </button>
               </div>
 
               <button 
                 onClick={() => setSelectedBadge(null)}
-                className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold py-2.5 rounded-xl text-xs transition mt-2"
+                className="w-80 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold py-2 rounded-xl text-xs transition mt-1"
               >
                 Fechar
               </button>
