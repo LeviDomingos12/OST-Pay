@@ -2719,7 +2719,7 @@ export default function App() {
     }));
   };
 
-  const getBase64ImageFromUrl = async (imageUrl: string, maxDim: number = 250): Promise<string> => {
+  const getBase64ImageFromUrl = async (imageUrl: string, maxDim: number = 150): Promise<string> => {
     try {
       const res = await fetch(imageUrl);
       const blob = await res.blob();
@@ -2964,7 +2964,7 @@ export default function App() {
 
     if (member.photoUrl) {
       try {
-        const base64Photo = await getBase64ImageFromUrl(member.photoUrl);
+        const base64Photo = await getBase64ImageFromUrl(member.photoUrl, 150);
         doc.saveGraphicsState();
         doc.ellipse(photoCenterX, photoCenterY, photoRadius - 0.3 * scale, photoRadius - 0.3 * scale, "F");
         doc.clip();
